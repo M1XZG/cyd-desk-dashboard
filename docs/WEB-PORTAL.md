@@ -64,6 +64,9 @@ next boot.
 A successful save redirects to the portal root rather than leaving the browser
 on `/save`. Wi-Fi or rotation changes schedule a restart.
 
+The manual restart page waits 15 seconds, then returns the browser to the portal
+root after the device has had time to boot.
+
 ## SD file manager
 
 Select **Browse SD card files** to:

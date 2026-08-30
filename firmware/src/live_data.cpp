@@ -96,20 +96,45 @@ bP6MvPJwNQzcmRk13NfIRmPVNnGuV/u3gm3c
 -----END CERTIFICATE-----
 )pem";
 
-constexpr char kIsrgRootX2[] = R"pem(
+constexpr char kHaricaTlsRsaRoot2021[] = R"pem(
 -----BEGIN CERTIFICATE-----
-MIICGzCCAaGgAwIBAgIQQdKd0XLq7qeAwSxs6S+HUjAKBggqhkjOPQQDAzBPMQsw
-CQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2gg
-R3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMjAeFw0yMDA5MDQwMDAwMDBaFw00
-MDA5MTcxNjAwMDBaME8xCzAJBgNVBAYTAlVTMSkwJwYDVQQKEyBJbnRlcm5ldCBT
-ZWN1cml0eSBSZXNlYXJjaCBHcm91cDEVMBMGA1UEAxMMSVNSRyBSb290IFgyMHYw
-EAYHKoZIzj0CAQYFK4EEACIDYgAEzZvVn4CDCuwJSvMWSj5cz3es3mcFDR0HttwW
-+1qLFNvicWDEukWVEYmO6gbf9yoWHKS5xcUy4APgHoIYOIvXRdgKam7mAHf7AlF9
-ItgKbppbd9/w+kHsOdx1ymgHDB/qo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0T
-AQH/BAUwAwEB/zAdBgNVHQ4EFgQUfEKWrt5LSDv6kviejM9ti6lyN5UwCgYIKoZI
-zj0EAwMDaAAwZQIwe3lORlCEwkSHRhtFcP9Ymd70/aTSVaYgLXTWNLxBo1BfASdW
-tL4ndQavEi51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1
-/q4AaOeMSQ+2b1tbFfLn
+MIIGwDCCBKigAwIBAgIQKmCG1NTeRcleS5j7vy+/JjANBgkqhkiG9w0BAQsFADCB
+pjELMAkGA1UEBhMCR1IxDzANBgNVBAcTBkF0aGVuczFEMEIGA1UEChM7SGVsbGVu
+aWMgQWNhZGVtaWMgYW5kIFJlc2VhcmNoIEluc3RpdHV0aW9ucyBDZXJ0LiBBdXRo
+b3JpdHkxQDA+BgNVBAMTN0hlbGxlbmljIEFjYWRlbWljIGFuZCBSZXNlYXJjaCBJ
+bnN0aXR1dGlvbnMgUm9vdENBIDIwMTUwHhcNMjEwOTAyMDc0MTU1WhcNMjkwODMx
+MDc0MTU0WjBsMQswCQYDVQQGEwJHUjE3MDUGA1UECgwuSGVsbGVuaWMgQWNhZGVt
+aWMgYW5kIFJlc2VhcmNoIEluc3RpdHV0aW9ucyBDQTEkMCIGA1UEAwwbSEFSSUNB
+IFRMUyBSU0EgUm9vdCBDQSAyMDIxMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIIC
+CgKCAgEAi8Lnr2WbBWeWyQ0kudAOZPzO4iQYLIR/d1HLBBE2uF7taXGnnuQlCZdn
+wUfCz5EWNmI9OAThUYL/rNK0ad0u7BGjRe5raztMv4yNpB6dEbnpOPl6DgyY4iMd
+0U5j1Oe4QUT7a69r2h/TxZGIW6SJktGB5ow5WKDWaUOprZhSWG7bCvtrz2j646Re
+OkVzmAfqXwJy3gyls5+uqR23HbP8ilnnbnJlrfUwlCMH84IWSzWYnFO7L8rkWtnH
+jR38mJn7LKSCa/AqH44LX3FcXK5CeymJgcsDo5nKiJ4LQAlBM9vmWHr9rplwwFoP
+1hOGcS92afyQ3dstbtHym/Uaa55vFYx68EsooCI4gCRsNqQ78jCR83gTz8E/Navx
+HREjtUMingGStxgC5RHRgtsVAMxhN8EqfJrh0LqzUEbugqydMfj7I+IDAEhwowkm
+eRVTYPM4XK046oEAYxS5M17dC9ugRQcaMwn4TbSnAqZp9MJZBYhlhVauS8vg3jx9
+LRrI6fsfo2FK1ioTrXdMGhibkQ9Y2AZUxZf4qj8giqaFpnf2pvwc4u5ulDMqg1CE
+CuVPhvhQRXgAgetbaOMmjcx7XFH0FCxAvhpgHXpyYR0fYy2Iqs6iRZAI/Gu+s1Aq
+Wv2oSBhG1pBAkpAKhF5oMfjr7Q3THcZ9mRhVVidlLo1FxSTszuMCAwEAAaOCASEw
+ggEdMA8GA1UdEwEB/wQFMAMBAf8wHwYDVR0jBBgwFoAUcRVnyMjJvXVdctA4GGqd
+83EkVAswTAYIKwYBBQUHAQEEQDA+MDwGCCsGAQUFBzAChjBodHRwOi8vcmVwby5o
+YXJpY2EuZ3IvY2VydHMvSGFyaWNhUm9vdENBMjAxNS5jcnQwEQYDVR0gBAowCDAG
+BgRVHSAAMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDATA6BgNVHR8EMzAx
+MC+gLaArhilodHRwOi8vY3JsLmhhcmljYS5nci9IYXJpY2FSb290Q0EyMDE1LmNy
+bDAdBgNVHQ4EFgQUCkgjpmCkkgoz6pNbxVfqJU29Eu4wDgYDVR0PAQH/BAQDAgGG
+MA0GCSqGSIb3DQEBCwUAA4ICAQDAze/rVni3cYGP1BWkxXnIVynqHcC6Cw7kbkXo
+XBZAqF9ANQAKoz2YQ+WyzrparKVilMG6p6mdWTKeLy6eQDRhFSu9DrMYr4TBYxIp
+2e5ZLQBk96xbG3wSepBCkTDA0MA0NybzM0gF5nTa82BMCED8EQXliWWsgqUorXuk
+7msadosX793M42llmAcj1zJkADzlyzi4gcPvIc4skfmz1OW9jxxwyaR/41VYzPVy
+w7m0rsL9n3v5PCFJ1zrldYayKq9gOdwOZInNJQgPU6imXEFBZWdqdR+xdL7qHVMk
+dzBRoFqnYjr2bonw87Rxk7dAsdzmUUPJTIayzDTdtU78XkOl0FivJWBXDQPiVB2Z
+5NdOVPUANDnADA5octuC3YTG2ncpG9aNKM4ggAyr3imdnz5UZdioYkecv2TVJHT2
+lXE5PH/ifJs8p9+WFgyzFsW97BUF1nKsZiUWvlyPY9C9PKuhI4OMeTEA99YIRXYj
+XDSZq300ko5sXUVKVG2osAR4Sr3wqS5hLGNBfym7FZwsQ+/ja+fenEALAbAiEMpI
+9h71lpMpIhdx7rdRznNeSOok/pVMaqvBZ0IvAq+yXb7d8C+tAND0IcUxYyyJqkE7
+89RJdcGZO9JMXv4inBFIEuMAMlGPxzcroEx+ehDXyGR0asw7CooV2DCfiEJlIsKz
+LcPZew==
 -----END CERTIFICATE-----
 )pem";
 
@@ -132,6 +157,12 @@ bool weatherBusy = false;
 bool flightsBusy = false;
 bool bambuddyBusy = false;
 bool systemsBusy = false;
+char cachedLocationSearch[101] = {};
+char cachedLocationName[65] = {};
+float cachedLatitude = 0;
+float cachedLongitude = 0;
+bool cachedLocationValid = false;
+uint32_t openMeteoBlockedUntil = 0;
 
 template <size_t Size>
 void copyText(char (&destination)[Size], const char* source) {
@@ -181,7 +212,8 @@ bool secureGetJson(
     const char* rootCertificate,
     JsonDocument& document,
     char* error,
-    size_t errorSize) {
+    size_t errorSize,
+    int* httpStatus = nullptr) {
   WiFiClientSecure client;
   client.setCACert(rootCertificate);
   client.setHandshakeTimeout(6);
@@ -196,6 +228,9 @@ bool secureGetJson(
   }
 
   const int status = request.GET();
+  if (httpStatus != nullptr) {
+    *httpStatus = status;
+  }
   if (status != HTTP_CODE_OK) {
     snprintf(error, errorSize, "Weather service returned HTTP %d", status);
     request.end();
@@ -240,20 +275,27 @@ bool geocodeLocation(
     size_t locationSize,
     char* error,
     size_t errorSize) {
+  if (cachedLocationValid &&
+      strcmp(cachedLocationSearch, settings.locationSearch) == 0) {
+    latitude = cachedLatitude;
+    longitude = cachedLongitude;
+    strlcpy(location, cachedLocationName, locationSize);
+    return true;
+  }
+
   JsonDocument geocoding;
-  String url =
+  const String geocodingUrl =
       "https://geocoding-api.open-meteo.com/v1/search?name=" +
       urlEncode(settings.locationSearch) +
       "&count=1&language=en&format=json";
   if (!secureGetJson(
-          url,
+          geocodingUrl,
           kIsrgRootX1,
           geocoding,
           error,
           errorSize)) {
     return false;
   }
-
   if (!geocoding["results"][0].isNull()) {
     latitude = geocoding["results"][0]["latitude"] | 0.0f;
     longitude = geocoding["results"][0]["longitude"] | 0.0f;
@@ -266,42 +308,57 @@ bool geocodeLocation(
         name,
         strlen(country) > 0 ? ", " : "",
         country);
-    return true;
-  }
-
-  if (!looksLikeUkPostcode(settings.locationSearch)) {
-    strlcpy(error, "Location was not found", errorSize);
-    return false;
-  }
-
-  String compactPostcode;
-  for (const char* cursor = settings.locationSearch; *cursor != 0; ++cursor) {
-    if (!isspace(static_cast<unsigned char>(*cursor))) {
-      compactPostcode += static_cast<char>(toupper(*cursor));
+  } else {
+    if (!looksLikeUkPostcode(settings.locationSearch)) {
+      strlcpy(error, "Location was not found", errorSize);
+      return false;
     }
+
+    String compactPostcode;
+    for (const char* cursor = settings.locationSearch; *cursor != 0; ++cursor) {
+      if (!isspace(static_cast<unsigned char>(*cursor))) {
+        compactPostcode += static_cast<char>(toupper(*cursor));
+      }
+    }
+
+    JsonDocument postcode;
+    const String postcodeUrl =
+        "https://api.postcodes.io/postcodes/" +
+        urlEncode(compactPostcode.c_str());
+    if (!secureGetJson(
+            postcodeUrl,
+            kGtsRootR4,
+            postcode,
+            error,
+            errorSize)) {
+      return false;
+    }
+    if ((postcode["status"] | 0) != 200 || postcode["result"].isNull()) {
+      strlcpy(error, "UK postcode was not found", errorSize);
+      return false;
+    }
+
+    latitude = postcode["result"]["latitude"] | 0.0f;
+    longitude = postcode["result"]["longitude"] | 0.0f;
+    const char* district = postcode["result"]["admin_district"] | "";
+    const char* postcodeName = postcode["result"]["postcode"] | "";
+    snprintf(
+        location,
+        locationSize,
+        "%s%s%s",
+        district,
+        strlen(district) > 0 ? " " : "",
+        postcodeName);
   }
 
-  JsonDocument postcode;
-  url = "https://api.postcodes.io/postcodes/" + urlEncode(compactPostcode.c_str());
-  if (!secureGetJson(url, kGtsRootR4, postcode, error, errorSize)) {
-    return false;
-  }
-  if ((postcode["status"] | 0) != 200 || postcode["result"].isNull()) {
-    strlcpy(error, "UK postcode was not found", errorSize);
-    return false;
-  }
-
-  latitude = postcode["result"]["latitude"] | 0.0f;
-  longitude = postcode["result"]["longitude"] | 0.0f;
-  const char* district = postcode["result"]["admin_district"] | "";
-  const char* postcodeName = postcode["result"]["postcode"] | "";
-  snprintf(
-      location,
-      locationSize,
-      "%s%s%s",
-      district,
-      strlen(district) > 0 ? " " : "",
-      postcodeName);
+  strlcpy(
+      cachedLocationSearch,
+      settings.locationSearch,
+      sizeof(cachedLocationSearch));
+  strlcpy(cachedLocationName, location, sizeof(cachedLocationName));
+  cachedLatitude = latitude;
+  cachedLongitude = longitude;
+  cachedLocationValid = true;
   return true;
 }
 
@@ -316,6 +373,24 @@ const char* weatherCondition(int code) {
   if (code >= 80 && code <= 82) return "Rain showers";
   if (code >= 85 && code <= 86) return "Snow showers";
   if (code >= 95) return "Thunderstorm";
+  return "Unknown";
+}
+
+const char* metNoWeatherCondition(const char* symbol) {
+  if (symbol == nullptr) return "Unknown";
+  if (strstr(symbol, "clearsky") != nullptr) return "Clear";
+  if (strstr(symbol, "fair") != nullptr ||
+      strstr(symbol, "partlycloudy") != nullptr) {
+    return "Partly cloudy";
+  }
+  if (strstr(symbol, "cloudy") != nullptr) return "Overcast";
+  if (strstr(symbol, "fog") != nullptr) return "Fog";
+  if (strstr(symbol, "thunder") != nullptr) return "Thunderstorm";
+  if (strstr(symbol, "snow") != nullptr ||
+      strstr(symbol, "sleet") != nullptr) {
+    return "Snow";
+  }
+  if (strstr(symbol, "rain") != nullptr) return "Rain";
   return "Unknown";
 }
 
@@ -365,6 +440,253 @@ void calculateMoon(
   const int phaseIndex =
       static_cast<int>(floor(age / synodicMonth * 8.0 + 0.5)) % 8;
   strlcpy(phase, phases[phaseIndex], phaseSize);
+}
+
+bool fetchSolarData(
+    float latitude,
+    float longitude,
+    const char* date,
+    WeatherData& result) {
+  JsonDocument solar;
+  const String url =
+      "https://api.sunrise-sunset.org/v2?lat=" +
+      String(latitude, 4) + "&lng=" + String(longitude, 4) +
+      "&date=" + urlEncode(date);
+  char error[97] = {};
+  if (!secureGetJson(
+          url,
+          kGtsRootR4,
+          solar,
+          error,
+          sizeof(error))) {
+    Serial.printf("[WEATHER] Solar data unavailable: %s\n", error);
+    return false;
+  }
+
+  const String sunrise = String(solar["sunrise"] | "");
+  const String sunset = String(solar["sunset"] | "");
+  if (sunrise.length() < 16 || sunset.length() < 16) {
+    Serial.println("[WEATHER] Solar response had no sunrise or sunset");
+    return false;
+  }
+
+  copyText(result.sunrise, sunrise.substring(11, 16).c_str());
+  copyText(result.sunset, sunset.substring(11, 16).c_str());
+  copyText(result.moonPhase, solar["moon_phase"] | result.moonPhase);
+  result.moonIllumination = constrain(
+      static_cast<int>(round(solar["moon_illumination"] | 0.0f)),
+      0,
+      100);
+
+  const char* offset = solar["utc_offset"] | "";
+  int hours = 0;
+  int minutes = 0;
+  if (strlen(offset) == 6 &&
+      sscanf(offset + 1, "%d:%d", &hours, &minutes) == 2) {
+    result.utcOffsetSeconds =
+        (hours * 60 + minutes) * 60 * (offset[0] == '-' ? -1 : 1);
+  }
+  Serial.printf(
+      "[WEATHER] Solar sunrise=%s sunset=%s\n",
+      result.sunrise,
+      result.sunset);
+  return true;
+}
+
+bool fetchMetNoWeather(
+    const LiveDataSettings& settings,
+    float latitude,
+    float longitude,
+    WeatherData& result) {
+  WiFiClientSecure client;
+  client.setCACert(kHaricaTlsRsaRoot2021);
+  client.setHandshakeTimeout(6);
+
+  const String url =
+      "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=" +
+      String(latitude, 4) + "&lon=" + String(longitude, 4);
+
+  HTTPClient request;
+  request.setConnectTimeout(6000);
+  request.setTimeout(12000);
+  request.useHTTP10(true);
+  if (!request.begin(client, url)) {
+    copyText(result.error, "Could not initialize backup weather request");
+    return false;
+  }
+  request.addHeader(
+      "User-Agent",
+      "CYD-Desk-Dashboard/1.0 github.com/M1XZG");
+  request.addHeader("Accept", "application/json");
+
+  const int status = request.GET();
+  if (status != HTTP_CODE_OK && status != 203) {
+    snprintf(
+        result.error,
+        sizeof(result.error),
+        "Backup weather service returned HTTP %d",
+        status);
+    request.end();
+    return false;
+  }
+
+  JsonDocument filter;
+  filter["properties"]["timeseries"][0]["time"] = true;
+  filter["properties"]["timeseries"][0]["data"]["instant"]["details"]
+        ["air_temperature"] = true;
+  filter["properties"]["timeseries"][0]["data"]["instant"]["details"]
+        ["relative_humidity"] = true;
+  filter["properties"]["timeseries"][0]["data"]["instant"]["details"]
+        ["wind_speed"] = true;
+  filter["properties"]["timeseries"][0]["data"]["instant"]["details"]
+        ["air_pressure_at_sea_level"] = true;
+  filter["properties"]["timeseries"][0]["data"]["next_1_hours"]["summary"]
+        ["symbol_code"] = true;
+  filter["properties"]["timeseries"][0]["data"]["next_6_hours"]["summary"]
+        ["symbol_code"] = true;
+
+  constexpr const char* temporaryPath =
+      "/dashboard/weather-response.tmp";
+  const bool storageLocked =
+      storageMutex == nullptr ||
+      xSemaphoreTake(storageMutex, pdMS_TO_TICKS(10000)) == pdTRUE;
+  if (!storageLocked) {
+    copyText(result.error, "SD card is busy");
+    request.end();
+    return false;
+  }
+  if (SD.exists(temporaryPath)) {
+    SD.remove(temporaryPath);
+  }
+  File responseFile = SD.open(temporaryPath, FILE_WRITE);
+  if (!responseFile) {
+    if (storageMutex != nullptr) {
+      xSemaphoreGive(storageMutex);
+    }
+    copyText(result.error, "Could not create the weather cache");
+    request.end();
+    return false;
+  }
+
+  const int expectedBytes = request.getSize();
+  const int bytesWritten = request.writeToStream(&responseFile);
+  responseFile.close();
+  request.end();
+  client.stop();
+  if (bytesWritten <= 0 ||
+      (expectedBytes > 0 && bytesWritten != expectedBytes)) {
+    SD.remove(temporaryPath);
+    if (storageMutex != nullptr) {
+      xSemaphoreGive(storageMutex);
+    }
+    copyText(result.error, "Backup weather download was incomplete");
+    return false;
+  }
+
+  File responseInput = SD.open(temporaryPath, FILE_READ);
+  if (!responseInput) {
+    SD.remove(temporaryPath);
+    if (storageMutex != nullptr) {
+      xSemaphoreGive(storageMutex);
+    }
+    copyText(result.error, "Could not read the weather cache");
+    return false;
+  }
+
+  JsonDocument forecast;
+  const DeserializationError jsonError = deserializeJson(
+      forecast,
+      responseInput,
+      DeserializationOption::Filter(filter));
+  responseInput.close();
+  SD.remove(temporaryPath);
+  if (storageMutex != nullptr) {
+    xSemaphoreGive(storageMutex);
+  }
+  if (jsonError) {
+    snprintf(
+        result.error,
+        sizeof(result.error),
+        "Backup weather JSON: %s",
+        jsonError.c_str());
+    return false;
+  }
+
+  const JsonArray timeseries = forecast["properties"]["timeseries"];
+  if (timeseries.isNull() || timeseries.size() == 0) {
+    copyText(result.error, "Backup weather response had no observations");
+    return false;
+  }
+
+  const JsonObject first = timeseries[0];
+  const JsonObject details = first["data"]["instant"]["details"];
+  float temperature = details["air_temperature"] | 0.0f;
+  float high = temperature;
+  float low = temperature;
+  const size_t values = min(timeseries.size(), static_cast<size_t>(24));
+  for (size_t index = 1; index < values; ++index) {
+    const float candidate =
+        timeseries[index]["data"]["instant"]["details"]["air_temperature"] |
+        temperature;
+    high = max(high, candidate);
+    low = min(low, candidate);
+  }
+
+  const char* symbol =
+      first["data"]["next_1_hours"]["summary"]["symbol_code"] | nullptr;
+  if (symbol == nullptr) {
+    symbol =
+        first["data"]["next_6_hours"]["summary"]["symbol_code"] | "";
+  }
+
+  result.temperature = temperature;
+  result.feelsLike = temperature;
+  result.high = high;
+  result.low = low;
+  result.humidity = constrain(
+      static_cast<int>(round(details["relative_humidity"] | 0.0f)),
+      0,
+      100);
+  result.windSpeed = (details["wind_speed"] | 0.0f) * 3.6f;
+  result.pressure = details["air_pressure_at_sea_level"] | 0.0f;
+  result.isDay = strstr(symbol, "_night") == nullptr;
+  copyText(result.condition, metNoWeatherCondition(symbol));
+
+  const String observed = String(first["time"] | "");
+  copyText(
+      result.observedTime,
+      observed.length() >= 16 ? observed.substring(0, 16).c_str() : "");
+  const String day =
+      observed.length() >= 10 ? observed.substring(0, 10) : "";
+  calculateMoon(
+      day.c_str(),
+      result.moonPhase,
+      sizeof(result.moonPhase),
+      result.moonIllumination);
+  copyText(result.sunrise, "--:--");
+  copyText(result.sunset, "--:--");
+
+  if (strcmp(settings.temperatureUnit, "fahrenheit") == 0) {
+    result.temperature = result.temperature * 1.8f + 32.0f;
+    result.feelsLike = result.feelsLike * 1.8f + 32.0f;
+    result.high = result.high * 1.8f + 32.0f;
+    result.low = result.low * 1.8f + 32.0f;
+    copyText(result.temperatureSuffix, "F");
+  }
+  if (strcmp(settings.windUnit, "mph") == 0) {
+    result.windSpeed *= 0.621371f;
+    copyText(result.windSuffix, "mph");
+  }
+  if (strcmp(settings.pressureUnit, "inhg") == 0) {
+    result.pressure *= 0.0295299830714f;
+    copyText(result.pressureSuffix, "inHg");
+  }
+
+  result.state = LiveDataState::ready;
+  result.updatedAt = millis();
+  copyText(result.provider, "MET Norway");
+  Serial.println("[WEATHER] Using MET Norway backup provider");
+  return true;
 }
 
 void trimText(char* value) {
@@ -668,7 +990,7 @@ void fetchFlights(const LiveDataSettings& settings) {
     } else {
       const bool useAdsbLol =
           strcmp(settings.flightsProvider, "adsb.lol") == 0;
-      rootCertificate = useAdsbLol ? kIsrgRootX2 : kGtsRootR4;
+      rootCertificate = useAdsbLol ? kIsrgRootX1 : kGtsRootR4;
       const float radiusNm = min(settings.flightsRadiusKm / 1.852f, 250.0f);
       url = String(
                 useAdsbLol
@@ -808,23 +1130,32 @@ void fetchWeather(const LiveDataSettings& settings) {
             sizeof(result.error))) {
       result.latitude = latitude;
       result.longitude = longitude;
-      const String url =
-          "https://api.open-meteo.com/v1/forecast?latitude=" +
-          String(latitude, 5) + "&longitude=" + String(longitude, 5) +
-          "&current=temperature_2m,apparent_temperature,relative_humidity_2m,"
-          "weather_code,wind_speed_10m,surface_pressure,is_day"
-          "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset"
-          "&timezone=auto&forecast_days=1&temperature_unit=" +
-          String(settings.temperatureUnit) + "&wind_speed_unit=" +
-          String(settings.windUnit);
-
+      const bool openMeteoBlocked =
+          openMeteoBlockedUntil != 0 &&
+          static_cast<int32_t>(millis() - openMeteoBlockedUntil) < 0;
+      int forecastStatus = 0;
+      bool forecastReady = false;
       JsonDocument forecast;
-      if (secureGetJson(
-              url,
-              kIsrgRootX1,
-              forecast,
-              result.error,
-              sizeof(result.error))) {
+      if (!openMeteoBlocked) {
+        const String url =
+            "https://api.open-meteo.com/v1/forecast?latitude=" +
+            String(latitude, 5) + "&longitude=" + String(longitude, 5) +
+            "&current=temperature_2m,apparent_temperature,relative_humidity_2m,"
+            "weather_code,wind_speed_10m,surface_pressure,is_day"
+            "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset"
+            "&timezone=auto&forecast_days=1&temperature_unit=" +
+            String(settings.temperatureUnit) + "&wind_speed_unit=" +
+            String(settings.windUnit);
+        forecastReady = secureGetJson(
+            url,
+            kIsrgRootX1,
+            forecast,
+            result.error,
+            sizeof(result.error),
+            &forecastStatus);
+      }
+
+      if (forecastReady) {
         result.temperature = forecast["current"]["temperature_2m"] | 0.0f;
         result.feelsLike =
             forecast["current"]["apparent_temperature"] | 0.0f;
@@ -872,6 +1203,17 @@ void fetchWeather(const LiveDataSettings& settings) {
 
         result.state = LiveDataState::ready;
         result.updatedAt = millis();
+        copyText(result.provider, "Open-Meteo");
+        openMeteoBlockedUntil = 0;
+      } else if (openMeteoBlocked || forecastStatus == 429) {
+        if (forecastStatus == 429) {
+          openMeteoBlockedUntil = millis() + 6UL * 60UL * 60UL * 1000UL;
+        }
+        if (fetchMetNoWeather(settings, latitude, longitude, result)) {
+          char day[11] = {};
+          strlcpy(day, result.observedTime, sizeof(day));
+          fetchSolarData(latitude, longitude, day, result);
+        }
       }
     }
   }

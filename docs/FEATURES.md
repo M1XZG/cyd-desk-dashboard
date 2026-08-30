@@ -7,7 +7,7 @@ Systems, and Calendar can be hidden. Settings remains available so a disabled
 tile can be restored. Each tile uses a 48x48 icon from the SD card and falls
 back to a built-in copy or text initial if the file cannot be read.
 
-![Home screen photo placeholder](images/home-screen.svg)
+![CYD Desk Dashboard home screen](images/home-screen.jpg)
 
 ## Startup screen
 
@@ -17,10 +17,15 @@ and no larger than 200 KB. An embedded copy of the standard artwork is used
 when the SD file cannot be displayed. A small **Starting...** label occupies
 the reserved lower strip.
 
+![CYD Desk Dashboard startup screen](images/startup-screen.jpg)
+
 ## Weather
 
 Weather searches Open-Meteo by town or postcode, then requests current and
-daily conditions for the selected coordinates. The page shows:
+daily conditions for the selected coordinates. If the public forecast endpoint
+is rate-limited, the dashboard temporarily uses MET Norway's Locationforecast
+service. Sunrise, sunset, and moon data then come from sunrise-sunset.org. The
+active data sources are credited on the Weather page. The page shows:
 
 - Current temperature and apparent temperature
 - Weather condition with a matching day or night icon
@@ -32,7 +37,7 @@ daily conditions for the selected coordinates. The page shows:
 Temperature, wind, and pressure units are configurable. Weather also supplies
 the local UTC offset used by the Calendar page.
 
-![Weather screen photo placeholder](images/weather-screen.svg)
+![Weather conditions and astronomy screen](images/weather-screen.jpg)
 
 ## Flights
 
@@ -53,9 +58,7 @@ Tapping an aircraft opens a detail page with the fields supplied by the
 provider: callsign, registration, aircraft type, route, altitude, speed,
 heading, distance, bearing, and climb or descent rate.
 
-![Flights radar photo placeholder](images/flights-screen.svg)
-
-![Aircraft details photo placeholder](images/aircraft-screen.svg)
+![Nearby-aircraft radar screen](images/flights-screen.jpg)
 
 ## Bambuddy
 
@@ -71,7 +74,7 @@ shows:
 Use an API key limited to status reading. The firmware does not expose printer
 control, queue management, or job cancellation.
 
-![Bambuddy screen photo placeholder](images/bambuddy-screen.svg)
+![Bambuddy printer status screen](images/bambuddy-screen.jpg)
 
 ## Systems
 
@@ -88,7 +91,7 @@ Each monitor has its own enable switch. Disabled monitors are neither checked
 nor displayed. The standalone design does not read CPU, disk, container, or
 temperature data from another machine.
 
-![Systems screen photo placeholder](images/systems-screen.svg)
+![Device and network systems screen](images/systems-screen.jpg)
 
 ## Calendar
 
@@ -99,7 +102,7 @@ Opening the tile resets the view to the current month.
 Calendar does not download a feed, store account credentials, or depend on
 another service.
 
-![Calendar screen photo placeholder](images/calendar-screen.svg)
+![Local monthly calendar screen](images/calendar-screen.jpg)
 
 ## On-device settings
 
@@ -108,15 +111,13 @@ brightness, tile visibility, service summaries, network status, portal
 address, and the generated bootstrap password. Text-heavy configuration is
 kept in the browser portal rather than an on-screen keyboard.
 
-![Settings screen photo placeholder](images/settings-screen.svg)
+![On-device settings menu](images/settings-screen.jpg)
 
 ## Browser portal
 
 The portal edits ordinary settings and write-only credentials. It also includes
 an SD-card file manager. Sections collapse to keep the page manageable on
 phones. Saves are validated, staged, and redirected back to the main page.
-
-![Web portal screenshot placeholder](images/web-portal.svg)
 
 ## Reliability behavior
 

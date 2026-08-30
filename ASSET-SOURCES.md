@@ -56,3 +56,12 @@ python3 tools/build_icons.py
 
 The mockup is 320x240, matching the physical landscape resolution. It is a
 layout guide rather than a final theme.
+
+## Board reference images
+
+`docs/images/board-front.jpg`, `docs/images/board-back.jpg`, and
+`docs/images/board-pinout.jpg` came from the
+[linked ESP32-2432S028 Amazon listing](https://link.amazon/B0e12EwEV). The
+repository owner supplied the source files and confirmed permission to
+redistribute them. Repository copies have been resized and stripped of embedded
+camera or source metadata.

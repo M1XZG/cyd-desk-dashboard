@@ -44,12 +44,22 @@ in the browser.
 
 Set a place or postcode, confirm DNS and internet access on the Systems page,
 and wait for the clock to synchronize. TLS requests cannot be validated before
-the device has a plausible time.
+the device has a plausible time. The dashboard caches resolved coordinates and
+limits weather refreshes to once every ten minutes. If Open-Meteo returns HTTP
+429, the firmware uses MET Norway until the Open-Meteo limit has had time to
+reset.
 
 ## Flights reports no aircraft
 
 Increase the search radius, lower the minimum altitude, or try the alternative
 free provider. A quiet area can legitimately return no traffic.
+
+## Flights reports HTTP -1
+
+A negative HTTP status means the connection failed before the provider returned
+an HTTP response. Confirm the clock, DNS, and internet state, then allow the next
+scheduled refresh to retry. Current firmware includes the ISRG Root X1 trust
+anchor required by the certificate chain used by `adsb.lol`.
 
 ## Bambuddy is unavailable
 

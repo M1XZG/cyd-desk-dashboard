@@ -46,6 +46,7 @@ struct WeatherData {
   char error[97] = {};
   char location[65] = {};
   char condition[33] = {};
+  char provider[17] = "Open-Meteo";
   char observedTime[17] = {};
   char sunrise[6] = {};
   char sunset[6] = {};

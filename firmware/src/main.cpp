@@ -193,9 +193,11 @@ lv_obj_t* statusLabel = nullptr;
 lv_obj_t* brightnessLabel = nullptr;
 lv_obj_t* weatherIconImage = nullptr;
 lv_obj_t* weatherTemperatureLabel = nullptr;
+lv_obj_t* weatherConditionLabel = nullptr;
 lv_obj_t* weatherSummaryLabel = nullptr;
 lv_obj_t* weatherDetailsLabel = nullptr;
 lv_obj_t* weatherAstronomyLabel = nullptr;
+lv_obj_t* weatherCreditLabel = nullptr;
 const char* renderedWeatherIconPath = nullptr;
 lv_obj_t* flightsRadar = nullptr;
 lv_obj_t* flightsMessageLabel = nullptr;
@@ -465,7 +467,8 @@ void loadConfiguration() {
         String(config["services"]["bambuddy"]["api_base_path"] | "/api/v1");
     bambuddyPrinterId = config["services"]["bambuddy"]["printer_id"] | 1;
     weatherRefreshMilliseconds =
-        static_cast<uint32_t>(config["refresh_seconds"]["weather"] | 600) *
+        static_cast<uint32_t>(
+            constrain(config["refresh_seconds"]["weather"] | 600, 600, 86400)) *
         1000UL;
     flightsRefreshMilliseconds =
         static_cast<uint32_t>(
@@ -1658,7 +1661,19 @@ void handlePortalRestart() {
     return;
   }
 
-  settingsServer.send(200, "text/plain", "Restarting...");
+  settingsServer.send(
+      200,
+      "text/html; charset=utf-8",
+      F("<!doctype html><html><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        "<title>Restarting dashboard</title></head>"
+        "<body style=\"font-family:sans-serif;max-width:38rem;margin:4rem auto;"
+        "padding:0 1rem;background:#111827;color:#e5e7eb\">"
+        "<h1>Restarting dashboard</h1>"
+        "<p>The device is restarting. This page will return to the dashboard "
+        "in about 15 seconds.</p>"
+        "<script>setTimeout(function(){location.replace('/');},15000);</script>"
+        "</body></html>"));
   restartPending = true;
   restartAt = millis() + 750;
 }
@@ -2579,17 +2594,21 @@ void renderWeatherPage() {
   if (data.state == LiveDataState::idle ||
       data.state == LiveDataState::loading) {
     lv_label_set_text(weatherTemperatureLabel, "--");
-    lv_label_set_text(weatherSummaryLabel, "Loading weather...");
-    lv_label_set_text(weatherDetailsLabel, "Resolving location and forecast");
+    lv_label_set_text(weatherConditionLabel, "Loading weather...");
+    lv_label_set_text(weatherSummaryLabel, "Resolving location and forecast");
+    lv_label_set_text(weatherDetailsLabel, "");
     lv_label_set_text(weatherAstronomyLabel, "");
+    lv_label_set_text(weatherCreditLabel, "");
     return;
   }
 
   if (data.state == LiveDataState::error) {
-    lv_label_set_text(weatherTemperatureLabel, "Weather unavailable");
+    lv_label_set_text(weatherTemperatureLabel, "--");
+    lv_label_set_text(weatherConditionLabel, "Weather unavailable");
     lv_label_set_text(weatherSummaryLabel, data.error);
     lv_label_set_text(weatherDetailsLabel, "Check Settings > Location and Wi-Fi.");
     lv_label_set_text(weatherAstronomyLabel, "");
+    lv_label_set_text(weatherCreditLabel, "");
     return;
   }
 
@@ -2603,15 +2622,9 @@ void renderWeatherPage() {
       data.temperature,
       data.temperatureSuffix);
   lv_label_set_text(weatherTemperatureLabel, temperature);
+  lv_label_set_text(weatherConditionLabel, data.condition);
 
-  char summary[128];
-  snprintf(
-      summary,
-      sizeof(summary),
-      "%s\n%s",
-      data.condition,
-      data.location);
-  lv_label_set_text(weatherSummaryLabel, summary);
+  lv_label_set_text(weatherSummaryLabel, data.location);
 
   char details[160];
   snprintf(
@@ -2641,6 +2654,11 @@ void renderWeatherPage() {
       data.moonPhase,
       data.moonIllumination);
   lv_label_set_text(weatherAstronomyLabel, astronomy);
+  lv_label_set_text(
+      weatherCreditLabel,
+      strcmp(data.provider, "MET Norway") == 0
+          ? "Weather: MET Norway\nSolar: sunrise-sunset.org"
+          : "Weather: Open-Meteo");
 }
 
 void showWeather() {
@@ -2650,9 +2668,23 @@ void showWeather() {
   styleScreen(screen);
   addStatusBar(screen);
 
-  lv_obj_t* headerPanel = lv_obj_create(screen);
+  lv_obj_t* scrollView = lv_obj_create(screen);
+  lv_obj_remove_style_all(scrollView);
+  lv_obj_set_size(scrollView, 320, 212);
+  lv_obj_set_pos(scrollView, 0, 28);
+  lv_obj_add_flag(scrollView, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_scroll_dir(scrollView, LV_DIR_VER);
+  lv_obj_set_scrollbar_mode(scrollView, LV_SCROLLBAR_MODE_ON);
+
+  lv_obj_t* content = lv_obj_create(scrollView);
+  lv_obj_remove_style_all(content);
+  lv_obj_set_size(content, 320, 286);
+  lv_obj_set_pos(content, 0, 0);
+  lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t* headerPanel = lv_obj_create(content);
   lv_obj_set_size(headerPanel, 304, 62);
-  lv_obj_set_pos(headerPanel, 8, 34);
+  lv_obj_set_pos(headerPanel, 8, 6);
   lv_obj_set_style_radius(headerPanel, 10, 0);
   lv_obj_set_style_bg_color(headerPanel, lv_color_hex(0x1E293B), 0);
   lv_obj_set_style_bg_opa(headerPanel, LV_OPA_COVER, 0);
@@ -2685,30 +2717,60 @@ void showWeather() {
   renderedWeatherIconPath = nullptr;
 
   weatherTemperatureLabel = lv_label_create(headerPanel);
+  lv_obj_set_width(weatherTemperatureLabel, 84);
+  lv_label_set_long_mode(weatherTemperatureLabel, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_font(weatherTemperatureLabel, &lv_font_montserrat_20, 0);
   lv_obj_set_pos(weatherTemperatureLabel, 64, 6);
+
+  weatherConditionLabel = lv_label_create(headerPanel);
+  lv_obj_set_width(weatherConditionLabel, 144);
+  lv_label_set_long_mode(weatherConditionLabel, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_font(weatherConditionLabel, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_color(
+      weatherConditionLabel,
+      lv_color_hex(0xE2E8F0),
+      0);
+  lv_obj_set_pos(weatherConditionLabel, 152, 12);
 
   weatherSummaryLabel = lv_label_create(headerPanel);
   lv_obj_set_width(weatherSummaryLabel, 232);
   lv_label_set_long_mode(weatherSummaryLabel, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_font(weatherSummaryLabel, &lv_font_montserrat_12, 0);
   lv_obj_set_style_text_color(weatherSummaryLabel, lv_color_hex(0xCBD5E1), 0);
-  lv_obj_set_pos(weatherSummaryLabel, 64, 32);
+  lv_obj_set_pos(weatherSummaryLabel, 64, 38);
 
-  weatherDetailsLabel = lv_label_create(screen);
+  weatherDetailsLabel = lv_label_create(content);
+  lv_obj_set_width(weatherDetailsLabel, 296);
   lv_obj_set_style_text_font(weatherDetailsLabel, &lv_font_montserrat_14, 0);
-  lv_obj_set_pos(weatherDetailsLabel, 12, 105);
+  lv_obj_set_pos(weatherDetailsLabel, 12, 77);
 
-  weatherAstronomyLabel = lv_label_create(screen);
+  weatherAstronomyLabel = lv_label_create(content);
+  lv_obj_set_width(weatherAstronomyLabel, 296);
   lv_obj_set_style_text_font(weatherAstronomyLabel, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(
       weatherAstronomyLabel,
       lv_color_hex(0xFBBF24),
       0);
-  lv_obj_set_pos(weatherAstronomyLabel, 12, 160);
+  lv_obj_set_pos(weatherAstronomyLabel, 12, 142);
 
-  addBackButton(screen);
-  liveDataRequestWeather();
+  lv_obj_t* scrollHint = lv_label_create(content);
+  lv_label_set_text(scrollHint, "Swipe up for more");
+  lv_obj_set_style_text_font(scrollHint, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(scrollHint, lv_color_hex(0x94A3B8), 0);
+  lv_obj_set_pos(scrollHint, 208, 198);
+
+  addBackButton(content);
+
+  weatherCreditLabel = lv_label_create(content);
+  lv_obj_set_width(weatherCreditLabel, 212);
+  lv_obj_set_style_text_font(weatherCreditLabel, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(
+      weatherCreditLabel,
+      lv_color_hex(0x94A3B8),
+      0);
+  lv_obj_set_style_text_align(weatherCreditLabel, LV_TEXT_ALIGN_RIGHT, 0);
+  lv_obj_set_pos(weatherCreditLabel, 96, 249);
+
   renderWeatherPage();
 }
 

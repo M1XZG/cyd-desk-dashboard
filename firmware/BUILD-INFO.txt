@@ -1,5 +1,5 @@
 ESP32 dashboard static Calendar firmware
-Build date: 2026-08-30
+Build date: 2026-08-31
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
 Framework: Arduino ESP32 2.0.17
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Application:
-firmware.bin size: 1,571,744 bytes
-firmware.bin SHA-256: 3c6e3dca4b3d51130a4b1ef304f2940ddf379f6be49590fce9cc3b0146e80fb9
+firmware.bin size: 1,587,424 bytes
+firmware.bin SHA-256: 18200260dd9dc3742f36589b7241d4b6165a6864a57966996d9fc1ac3731beca
 
 Systems:
 Device health, internet connectivity, and four configurable monitors
@@ -26,6 +26,12 @@ Each monitor can be disabled to skip its check and remove its device card
 Calendar shows a local Sunday-first month grid with previous/next navigation
 Today is highlighted and Calendar performs no network requests
 The retired iCalendar downloader is excluded from the firmware build
+Weather caches resolved locations and enforces a ten-minute refresh minimum
+MET Norway supplies weather when Open-Meteo returns HTTP 429
+sunrise-sunset.org supplies local solar and lunar data in fallback mode
+Weather content scrolls vertically with persistent position guidance
+adsb.lol TLS validation uses the provider's ISRG Root X1 certificate chain
+The portal restart page returns to the dashboard after 15 seconds
 Generic startup artwork is embedded with an SD-card JPEG override
 Portal sections are collapsible and the HTML buffer is reserved atomically
 Core-0 network worker stack: 16,384 bytes

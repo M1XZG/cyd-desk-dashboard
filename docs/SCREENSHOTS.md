@@ -1,29 +1,29 @@
 # Screenshots and photographs
 
-The current firmware does not expose the display framebuffer, and its LVGL
-pages depend directly on ESP32 hardware, SD storage, and live service state.
-There is no ready-made emulator that can reproduce the screens accurately
-without a separate simulator port.
+The device UI is documented with photographs of the physical CYD rather than
+simulated renders. Repository copies are resized for the web, stripped of
+camera metadata, and edited where necessary to hide local names and addresses.
 
-The browser portal can be captured in a normal browser, but the most faithful
-documentation for the device UI is a straight-on photograph of each physical
-screen. Placeholders are already linked throughout the documentation.
+## Current photographs
 
-## Needed images
-
-| File to replace | Screen |
+| File | Screen |
 | --- | --- |
-| `docs/images/home-screen.svg` | Home tile grid |
-| `docs/images/weather-screen.svg` | Weather |
-| `docs/images/flights-screen.svg` | Flights radar |
+| `docs/images/startup-screen.jpg` | Startup artwork |
+| `docs/images/home-screen.jpg` | Home tile grid |
+| `docs/images/weather-screen.jpg` | Weather |
+| `docs/images/flights-screen.jpg` | Flights radar |
+| `docs/images/bambuddy-screen.jpg` | Bambuddy |
+| `docs/images/systems-screen.jpg` | Systems |
+| `docs/images/calendar-screen.jpg` | Calendar |
+| `docs/images/settings-screen.jpg` | On-device Settings |
+
+## Still needed
+
+| Placeholder | Screen |
+| --- | --- |
 | `docs/images/aircraft-screen.svg` | Aircraft details |
-| `docs/images/bambuddy-screen.svg` | Bambuddy |
-| `docs/images/systems-screen.svg` | Systems |
-| `docs/images/calendar-screen.svg` | Calendar |
-| `docs/images/settings-screen.svg` | On-device Settings |
 | `docs/images/web-portal.svg` | Browser settings portal |
 
-Use landscape images, crop closely around the screen or browser viewport, and
-hide private IP addresses, Wi-Fi names, API keys, printer names, and personal
-locations. PNG or WebP is preferred for the final images. After adding a real
-image, update the matching Markdown link from `.svg` to the new extension.
+Future photographs should be landscape, framed closely around the device, and
+free of private IP addresses, Wi-Fi names, API keys, printer names, and personal
+locations. Strip EXIF and GPS metadata before committing them.

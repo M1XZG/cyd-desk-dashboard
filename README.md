@@ -8,11 +8,7 @@ Bambuddy printer status, network and service health, and a local monthly
 calendar. Configuration is managed through an authenticated browser portal,
 with settings and replaceable artwork stored on a microSD card.
 
-![Home screen photo placeholder](docs/images/home-screen.svg)
-
-> Device photographs are still needed. The repository contains labelled
-> placeholders so real screen photos can be dropped in without restructuring
-> the documentation.
+![CYD Desk Dashboard home screen](docs/images/home-screen.jpg)
 
 ## Highlights
 
