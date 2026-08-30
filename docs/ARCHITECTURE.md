@@ -69,5 +69,7 @@ not supported.
 | `firmware/include/live_data.h` | Typed service settings and snapshot structures |
 | `firmware/include/lgfx_cyd.h` | Display and touch hardware definition |
 | `firmware/include/default_icons.h` | Embedded icon fallbacks |
+| `firmware/include/default_startup.h` | Generated embedded startup JPEG |
 | `firmware/src/lv_conf.h` | LVGL features, fonts, color depth, and memory pool |
 | `tools/build_icons.py` | Converts source PNG artwork to LVGL alpha assets |
+| `tools/build_startup.py` | Builds the SD startup JPEG and embedded fallback |

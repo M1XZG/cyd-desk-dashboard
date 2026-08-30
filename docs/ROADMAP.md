@@ -22,9 +22,13 @@ interface could add drag-and-drop or move-left/move-right controls.
 
 ## Personalized startup screen
 
-Allow an SD-hosted image and custom text to appear during startup. The design
-needs image-size limits, a safe fallback, and a timeout so invalid artwork
-cannot prevent the dashboard from reaching the home screen.
+The standard startup artwork and SD-hosted `/dashboard/startup.jpg` override
+are complete. Remaining work:
+
+- Add a portal upload and preview control dedicated to startup artwork
+- Add configurable startup text
+- Allow the display duration to be configured
+- Validate image dimensions before replacing the active file
 
 ## Longer-term ideas
 

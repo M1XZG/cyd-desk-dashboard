@@ -29,6 +29,10 @@ The firmware can boot without either live JSON file. It creates versioned
 examples when they are missing, but Wi-Fi and the portal remain unavailable
 until credentials are supplied.
 
+`dashboard/startup.jpg` is optional. The supplied file matches the embedded
+default. Replace it with another 320x240 RGB JPEG under 200 KB to customize the
+startup artwork without rebuilding the firmware.
+
 ## Build
 
 From the repository root:

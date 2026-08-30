@@ -25,6 +25,7 @@ with settings and replaceable artwork stored on a microSD card.
 - Sunday-first monthly calendar with previous and next month navigation
 - Authenticated browser settings portal and SD-card file manager
 - Replaceable SD-card icons with built-in fallbacks
+- Branded startup screen with an SD-card JPEG override
 - Saved touch calibration, orientation, brightness, and tile visibility
 - Serialized network and SD work to keep the interface responsive
 

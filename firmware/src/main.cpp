@@ -11,6 +11,7 @@
 #include <new>
 
 #include "default_icons.h"
+#include "default_startup.h"
 #include "lgfx_cyd.h"
 #include "live_data.h"
 
@@ -4236,6 +4237,41 @@ void initialiseDisplay() {
   lv_indev_drv_register(&inputDriver);
 }
 
+void showStartupScreen() {
+  bool drawn = false;
+  constexpr const char* customPath = "/dashboard/startup.jpg";
+  if (sdReady && SD.exists(customPath)) {
+    File image = SD.open(customPath, FILE_READ);
+    if (image && image.size() <= 200U * 1024U) {
+      image.close();
+      drawn = display.drawJpgFile(
+          SD,
+          customPath,
+          0,
+          0,
+          kScreenWidth,
+          kScreenHeight);
+    } else {
+      image.close();
+    }
+  }
+  if (!drawn) {
+    display.drawJpg(
+        kDefaultStartupJpeg,
+        sizeof(kDefaultStartupJpeg),
+        0,
+        0,
+        kScreenWidth,
+        kScreenHeight);
+  }
+
+  display.setTextDatum(textdatum_t::bottom_center);
+  display.setTextColor(0x632C);
+  display.setTextSize(1);
+  display.drawString("Starting...", kScreenWidth / 2, kScreenHeight - 6);
+  delay(1200);
+}
+
 }  // namespace
 
 void setup() {
@@ -4250,6 +4286,7 @@ void setup() {
   initialiseStorage();
   ensureSdScaffold();
   initialiseDisplay();
+  showStartupScreen();
   liveDataBegin();
 
   const bool forceCalibration = digitalRead(kTouchIrq) == LOW;

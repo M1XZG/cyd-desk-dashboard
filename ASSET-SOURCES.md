@@ -34,6 +34,20 @@ existing files, so users can replace individual icons on the SD card. A missing
 or invalid icon falls back to the tile's initial letter. Replacement files must
 use the same 48x48 LVGL 4-bit alpha format and 1,156-byte file size.
 
+## Startup artwork
+
+`assets/startup-logo.svg` is the editable source for the standard startup
+screen. `assets/startup-logo.png` is the lossless 320x240 master, while
+`sd-card/dashboard/startup.jpg` is the compact runtime copy.
+
+The JPEG must be exactly 320x240 pixels, use RGB color, and remain below 200 KB.
+The firmware displays an embedded copy when the SD file is missing or invalid.
+Regenerate the SD image and embedded fallback with:
+
+```bash
+python3 tools/build_startup.py
+```
+
 Regenerate the runtime files and embedded defaults from the source PNGs with:
 
 ```bash

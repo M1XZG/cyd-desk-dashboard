@@ -6,6 +6,7 @@ The dashboard stores ordinary settings separately from credentials:
 | --- | --- |
 | `/dashboard/config.json` | Display, location, units, services, refresh intervals, and tile visibility |
 | `/dashboard/connections.json` | Wi-Fi, API keys, provider tokens, and portal password |
+| `/dashboard/startup.jpg` | Optional 320x240 startup artwork |
 
 Start from the `.example.json` files in `sd-card/dashboard`. The browser portal
 is the preferred editor after the first Wi-Fi connection.
@@ -101,3 +102,10 @@ consistent pair after interrupted power or a failed rename.
 
 Live `config.json` and `connections.json` are ignored by Git. Do not force-add
 them to a repository.
+
+## Startup artwork
+
+The startup file must be a 320x240 RGB JPEG no larger than 200 KB. Keep the
+bottom 32 pixels visually quiet because the firmware draws its startup status
+there. If the file is missing, oversized, or cannot be decoded, the embedded
+standard artwork is shown.

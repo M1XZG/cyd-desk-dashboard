@@ -9,6 +9,14 @@ back to a built-in copy or text initial if the file cannot be read.
 
 ![Home screen photo placeholder](images/home-screen.svg)
 
+## Startup screen
+
+The dashboard opens with a 320x240 project graphic for at least 1.2 seconds.
+It reads `/dashboard/startup.jpg` from the SD card when that file is present
+and no larger than 200 KB. An embedded copy of the standard artwork is used
+when the SD file cannot be displayed. A small **Starting...** label occupies
+the reserved lower strip.
+
 ## Weather
 
 Weather searches Open-Meteo by town or postcode, then requests current and
