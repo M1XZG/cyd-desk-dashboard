@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "display": {
+    "rotation": 1,
+    "brightness_percent": 85,
+    "panel_variant": "auto"
+  },
+  "locale": {
+    "time_format": "24h",
+    "date_format": "yyyy-dd-mm"
+  },
+  "location": {
+    "method": "search",
+    "search": "YOUR TOWN OR POSTCODE",
+    "name": "",
+    "country": "",
+    "country_code": "",
+    "latitude": null,
+    "longitude": null,
+    "elevation_metres": null,
+    "timezone": "auto"
+  },
+  "weather": {
+    "temperature_unit": "celsius",
+    "wind_speed_unit": "kmh",
+    "pressure_unit": "hpa",
+    "precipitation_unit": "mm"
+  },
+  "flights": {
+    "provider": "airplanes.live",
+    "radius_km": 100,
+    "maximum_aircraft": 12,
+    "minimum_altitude_ft": 0
+  },
+  "services": {
+    "bambuddy": {
+      "enabled": true,
+      "protocol": "http",
+      "host": "192.168.1.50",
+      "port": 9001,
+      "api_base_path": "/api/v1",
+      "printer_id": 1
+    },
+    "flights": {
+      "enabled": true
+    },
+    "systems": {
+      "enabled": true,
+      "monitors": [
+        {"enabled": false, "name": "", "type": "http", "host": "", "port": 80, "path": "/"},
+        {"enabled": false, "name": "", "type": "http", "host": "", "port": 80, "path": "/"},
+        {"enabled": false, "name": "", "type": "tcp", "host": "", "port": 443, "path": "/"},
+        {"enabled": false, "name": "", "type": "tcp", "host": "", "port": 22, "path": "/"}
+      ]
+    },
+    "calendar": {
+      "enabled": true
+    }
+  },
+  "refresh_seconds": {
+    "weather": 600,
+    "astronomy": 3600,
+    "flights": 60,
+    "bambuddy_visible": 30,
+    "bambuddy_background": 120,
+    "systems": 60
+  },
+  "tile_visibility": {
+    "weather": true,
+    "flights": true,
+    "bambuddy": true,
+    "systems": true,
+    "calendar": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "wifi": {
+    "ssid": "YOUR_WIFI_NETWORK",
+    "password": "YOUR_WIFI_PASSWORD"
+  },
+  "services": {
+    "bambuddy_readonly_api_key": "bb_READ_STATUS_KEY_ONLY",
+    "flights_api_token": "",
+    "systems_readonly_token": ""
+  },
+  "device": {
+    "settings_portal_password": ""
+  }
+}

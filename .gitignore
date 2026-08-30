@@ -1,0 +1,25 @@
+# Local environments and build output
+.venv/
+firmware/.pio/
+firmware/.vscode/
+*.pyc
+__pycache__/
+
+# Live device configuration and credentials
+sd-card/dashboard/config.json
+sd-card/dashboard/connections.json
+sd-card/dashboard/*.portal-stage.json
+sd-card/dashboard/*.portal-backup.json
+sd-card/dashboard/calendar.tmp
+
+# Research checkouts and temporary captures
+tmp/
+API-NOTES.md
+FIRMWARE-PLAN.md
+REFERENCE-NOTES.md
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "themes": {
+    "midnight": {
+      "background": "#111827",
+      "panel": "#1F2937",
+      "accent": "#38BDF8",
+      "text": "#F8FAFC",
+      "muted": "#94A3B8"
+    },
+    "slate": {
+      "background": "#1E293B",
+      "panel": "#334155",
+      "accent": "#60A5FA",
+      "text": "#F8FAFC",
+      "muted": "#CBD5E1"
+    },
+    "nordic": {
+      "background": "#2E3440",
+      "panel": "#3B4252",
+      "accent": "#88C0D0",
+      "text": "#ECEFF4",
+      "muted": "#D8DEE9"
+    },
+    "forest": {
+      "background": "#102A23",
+      "panel": "#1C4537",
+      "accent": "#4ADE80",
+      "text": "#F0FDF4",
+      "muted": "#A7F3D0"
+    },
+    "coffee": {
+      "background": "#2B2118",
+      "panel": "#493628",
+      "accent": "#D6A56F",
+      "text": "#FFF7ED",
+      "muted": "#E7C9A9"
+    },
+    "soft": {
+      "background": "#EDE9FE",
+      "panel": "#FFFFFF",
+      "accent": "#7C3AED",
+      "text": "#2E1065",
+      "muted": "#6D5A8A"
+    },
+    "graphite": {
+      "background": "#171717",
+      "panel": "#292929",
+      "accent": "#A3A3A3",
+      "text": "#FAFAFA",
+      "muted": "#B5B5B5"
+    },
+    "garnet": {
+      "background": "#2A0F16",
+      "panel": "#4A1725",
+      "accent": "#FB7185",
+      "text": "#FFF1F2",
+      "muted": "#FDA4AF"
+    },
+    "ochre": {
+      "background": "#2A1E0B",
+      "panel": "#4A3512",
+      "accent": "#FBBF24",
+      "text": "#FFFBEB",
+      "muted": "#FDE68A"
+    },
+    "high-contrast": {
+      "background": "#000000",
+      "panel": "#171717",
+      "accent": "#FFFF00",
+      "text": "#FFFFFF",
+      "muted": "#D4D4D4"
+    }
+  }
+}

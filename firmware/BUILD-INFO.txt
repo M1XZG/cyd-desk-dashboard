@@ -1,0 +1,39 @@
+ESP32 dashboard static Calendar firmware
+Build date: 2026-08-30
+PlatformIO Core: 6.1.19
+Platform: espressif32 6.12.0
+Framework: Arduino ESP32 2.0.17
+Board target: esp32dev / ESP32-2432S028 CYD
+Flash mode: DIO, 80 MHz, 4 MB
+Partition table: min_spiffs.csv
+
+Dependencies:
+LovyanGFX 1.2.28
+LVGL 8.4.0
+ArduinoJson 7.4.3
+
+Application:
+firmware.bin size: 1,546,480 bytes
+firmware.bin SHA-256: d0943207347b1d442717ea4cc7527e824d2d3e836b2ce03a056f5f0c8a1bc606
+
+Systems:
+Device health, internet connectivity, and four configurable monitors
+HTTP monitors accept status codes 200-399 and currently support plain HTTP
+TCP monitors test a configured host and port
+Compact card typography physically accepted on the target device
+Portal and runtime monitor reads preserve existing ArduinoJson objects
+Each monitor can be disabled to skip its check and remove its device card
+Calendar shows a local Sunday-first month grid with previous/next navigation
+Today is highlighted and Calendar performs no network requests
+The retired iCalendar downloader is excluded from the firmware build
+Portal sections are collapsible and the HTML buffer is reserved atomically
+Core-0 network worker stack: 16,384 bytes
+LVGL memory pool: 40 KB
+
+Boot components:
+bootloader.bin SHA-256: 5b1b0cd6bcbfd6de6d388652a46e9b6e341f36adb9127d1e654d21dadeae74bd
+partitions.bin SHA-256: 0a8b5720e7b77ff11f1462458c3a509dee79224e5279898f26d6a2e3ae0517b7
+
+Original rollback image:
+esp32-com4-full-flash-2026-08-30.bin SHA-256:
+c03997ce1e1dcc57bd253b3e702d509e6e75db63385adc7e26a2290a5a7d4e72

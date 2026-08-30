@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible firmware, portal, or hardware problem.
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the expected and actual behavior.
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Board revision
+      placeholder: ESP32-2432S028, display/touch revision if known
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: serial
+    attributes:
+      label: Relevant serial output
+      description: Remove credentials, private addresses, and personal data.
+      render: text
