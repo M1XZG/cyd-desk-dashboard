@@ -32,7 +32,7 @@ mutexes before the UI reads them.
 The tested board has no PSRAM. The firmware therefore:
 
 - Creates pages on demand instead of retaining every screen
-- Uses a 36 KB LVGL allocator
+- Uses a 32 KB LVGL allocator
 - Keeps one synchronous display buffer covering five rows
 - Bounds service responses and result counts
 - Streams large flight responses through SD rather than a large RAM document

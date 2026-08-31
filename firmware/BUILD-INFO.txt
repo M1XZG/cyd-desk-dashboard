@@ -1,4 +1,4 @@
-ESP32 dashboard v1.1.1 firmware
+ESP32 dashboard v1.1.2 firmware
 Build date: 2026-08-31
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,649,840 bytes
-firmware.bin SHA-256: b79847440e556506635ee04170aa46569724f3d690d94a6a62c4e3878dcf4f25
+firmware.bin size: 1,649,888 bytes
+firmware.bin SHA-256: d50f39547708d69fe922dbdef26bbcdf0dd92265f0a96ede2cacd54b388ac263
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -61,7 +61,7 @@ Generic startup artwork is embedded with an SD-card JPEG override
 Portal sections are collapsible and the HTML buffer is reserved atomically
 Core-0 network worker stack: 16,384 bytes
 Core-0 OTA worker stack: 12,288 bytes
-LVGL memory pool: 36 KB
+LVGL memory pool: 32 KB
 LVGL display buffer: one synchronous five-row buffer
 
 Boot components:

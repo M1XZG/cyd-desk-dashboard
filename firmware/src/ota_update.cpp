@@ -19,7 +19,7 @@ constexpr char kFirmwareAssetUrlPrefix[] =
     "https://github.com/M1XZG/cyd-desk-dashboard/releases/download/";
 constexpr size_t kMaximumReleaseResponseBytes = 128U * 1024U;
 constexpr uint32_t kNetworkLockTimeoutMilliseconds = 15000;
-constexpr uint32_t kDownloadStallTimeoutMilliseconds = 15000;
+constexpr uint32_t kDownloadStallTimeoutMilliseconds = 30000;
 
 constexpr char kGitHubCaBundle[] = R"pem(
 -----BEGIN CERTIFICATE-----
@@ -528,15 +528,22 @@ bool installRelease(char* error, size_t errorSize) {
     strlcpy(error, "Another network request is still running", errorSize);
     return false;
   }
+  if (!Update.begin(manifest.size, U_FLASH)) {
+    snprintf(error, errorSize, "Could not prepare OTA: %s", Update.errorString());
+    return false;
+  }
 
   WiFiClientSecure client;
   client.setInsecure();
   client.setHandshakeTimeout(8);
+  client.setTimeout(30000);
   HTTPClient request;
   configureRequest(request);
+  request.setTimeout(30000);
   request.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   if (!request.begin(client, manifest.firmwareUrl)) {
     strlcpy(error, "Could not initialize the firmware download", errorSize);
+    Update.abort();
     return false;
   }
   request.addHeader(
@@ -546,6 +553,7 @@ bool installRelease(char* error, size_t errorSize) {
   if (httpStatus != HTTP_CODE_OK) {
     snprintf(error, errorSize, "Firmware download returned HTTP %d", httpStatus);
     request.end();
+    Update.abort();
     return false;
   }
   const int contentLength = request.getSize();
@@ -553,11 +561,7 @@ bool installRelease(char* error, size_t errorSize) {
       static_cast<uint32_t>(contentLength) != manifest.size) {
     strlcpy(error, "Firmware size does not match the release manifest", errorSize);
     request.end();
-    return false;
-  }
-  if (!Update.begin(manifest.size, U_FLASH)) {
-    snprintf(error, errorSize, "Could not prepare OTA: %s", Update.errorString());
-    request.end();
+    Update.abort();
     return false;
   }
 
