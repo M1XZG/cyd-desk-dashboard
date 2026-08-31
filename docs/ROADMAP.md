@@ -1,19 +1,5 @@
 # Roadmap
 
-## OTA firmware updates
-
-Add a firmware section to Settings and the browser portal with:
-
-- An enable switch for update checks
-- The installed firmware version
-- The newest available release version
-- A manual **Check for updates** action
-- A confirmed OTA installation flow with progress and failure recovery
-
-The implementation must verify downloaded firmware, preserve configuration and
-touch calibration, and avoid leaving the device unbootable after interrupted
-power.
-
 ## Home tile ordering
 
 Allow users to change the order of the five data tiles while keeping Settings

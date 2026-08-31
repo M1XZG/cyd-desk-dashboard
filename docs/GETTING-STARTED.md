@@ -128,3 +128,15 @@ read-only API key. Systems monitors are optional.
 
 See [Web portal](WEB-PORTAL.md) for each field and
 [Features](FEATURES.md) for provider behavior.
+
+## Install later firmware releases
+
+Open **Settings > Firmware** on the device or **Firmware updates** in the
+browser portal. Select **Check for updates**, review the installed and latest
+versions, then confirm the installation. If both versions match, the install
+control becomes **Reinstall current release**.
+
+Keep the dashboard powered during installation. OTA replaces only
+`firmware.bin` and preserves NVS calibration, configuration, and SD-card
+content. A release that changes the bootloader or partition table still
+requires the full USB flashing procedure.

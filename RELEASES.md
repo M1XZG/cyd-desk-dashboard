@@ -20,10 +20,11 @@ A clean or recovered board needs the full set of images. Flash
 CYD build and its `min_spiffs.csv` partition layout. Do not substitute a
 partition image from a different build.
 
-`SBOM.spdx.json` lists the pinned build platform, framework, firmware libraries,
-and repository Python tooling in SPDX 2.3 JSON format. `SHA256SUMS` contains
-the digest of every binary and the SBOM. Verify downloads from the directory
-that contains them:
+`ota-manifest.json` supplies the installed-version check with the release tag,
+firmware size, and firmware SHA-256 digest. `SBOM.spdx.json` lists the pinned
+build platform, framework, firmware libraries, and repository Python tooling in
+SPDX 2.3 JSON format. `SHA256SUMS` contains the digest of every binary, the
+manifest, and the SBOM. Verify downloads from the directory that contains them:
 
 ```sh
 sha256sum --check SHA256SUMS
@@ -40,3 +41,17 @@ gh attestation verify firmware.bin --repo M1XZG/cyd-desk-dashboard
 The checksum detects a damaged or substituted download. The attestation ties
 the artifact digest to the GitHub Actions build that produced the tagged
 release.
+
+## OTA updates
+
+Firmware version `v1.1.0` and later can check and install the latest stable
+release from **Settings > Firmware** or the browser portal. The device follows
+GitHub's release redirects over certificate-validated HTTPS, streams
+`firmware.bin` into the inactive OTA slot, and compares its size and SHA-256
+against `ota-manifest.json` before activation.
+The next boot marks the image valid after firmware startup completes; the
+ESP32 rollback-enabled bootloader retains the previous slot until then.
+
+OTA cannot replace `bootloader.bin`, `partitions.bin`, or `boot_app0.bin`.
+Releases that change those components must say so in their release notes and
+require a full USB flash.

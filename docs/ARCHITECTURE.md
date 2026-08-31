@@ -20,9 +20,11 @@ from the Arduino main loop. Page changes requested by a touch callback are
 deferred until after `lv_timer_handler()`, preventing an active event from
 destroying its own LVGL object tree.
 
-A single worker pinned to core 0 handles Weather, Flights, Bambuddy, and
-Systems jobs. One queue and per-service busy flags prevent overlapping requests.
-Snapshots are copied under a mutex before the UI reads them.
+A worker pinned to core 0 handles Weather, Flights, Bambuddy, and Systems jobs.
+One queue and per-service busy flags prevent those requests from overlapping.
+A second core-0 worker handles update checks and OTA installation. Both workers
+share a network mutex so the no-PSRAM device performs only one TLS operation at
+a time. Snapshots are copied under their own mutexes before the UI reads them.
 
 ## Memory strategy
 
@@ -33,6 +35,7 @@ The tested board has no PSRAM. The firmware therefore:
 - Keeps two display buffers covering ten rows each
 - Bounds service responses and result counts
 - Streams large flight responses through SD rather than a large RAM document
+- Streams OTA firmware directly into the inactive application partition
 - Uses a 16 KB network-worker stack and a 12 KB Arduino loop stack
 
 ## Storage
@@ -51,6 +54,14 @@ clock before certificate validation. SNTP starts independently as soon as the
 station connects, using the configured POSIX timezone. Wi-Fi sleep is disabled
 to improve request reliability. Service failures are isolated to their own
 snapshots.
+
+OTA checks use the stable GitHub release manifest. The manifest supplies the
+release version, expected firmware size, and SHA-256 digest. The installer
+validates all three, rejects downgrades, writes only the inactive application
+partition, and activates it after the complete image passes verification.
+On the next boot, startup completion marks the pending image valid. A crash or
+restart before that checkpoint leaves the bootloader able to select the prior
+OTA image.
 
 When credentials are absent, the ESP32 starts a protected access point and
 captive setup page. Successful setup writes both live JSON documents and
@@ -74,7 +85,10 @@ supported.
 | --- | --- |
 | `firmware/src/main.cpp` | Device initialization, configuration, portal, LVGL pages, navigation, and scheduling |
 | `firmware/src/live_data.cpp` | Provider clients, parsing, background worker, and thread-safe snapshots |
+| `firmware/src/ota_update.cpp` | GitHub release checks, streamed OTA installation, and SHA-256 verification |
 | `firmware/include/live_data.h` | Typed service settings and snapshot structures |
+| `firmware/include/ota_update.h` | OTA state and thread-safe status snapshots |
+| `firmware/include/firmware_version.h` | Installed release version shown by the device |
 | `firmware/include/lgfx_cyd.h` | Display and touch hardware definition |
 | `firmware/include/default_icons.h` | Embedded icon fallbacks |
 | `firmware/include/default_startup.h` | Generated embedded startup JPEG |

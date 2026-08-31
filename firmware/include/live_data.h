@@ -144,6 +144,7 @@ struct SystemsData {
 
 void liveDataBegin();
 void liveDataSetStorageMutex(SemaphoreHandle_t mutex);
+void liveDataSetNetworkMutex(SemaphoreHandle_t mutex);
 void liveDataConfigure(const LiveDataSettings& settings);
 bool liveDataRequestWeather();
 bool liveDataRequestFlights();

@@ -122,12 +122,27 @@ signal level. The local time appears at the right after SNTP synchronizes.
 Settings > System records the Wi-Fi channel and RSSI in dBm when the page
 opens, alongside the portal address and device memory.
 
+### Firmware updates
+
+Settings > Firmware shows the installed firmware version and checks the latest
+stable GitHub release on demand. When a newer release is available, the device
+offers a two-tap confirmed installation. When the installed release is already
+current, the same screen can reinstall it.
+
+The firmware binary streams directly into the inactive OTA partition. Its byte
+count and SHA-256 digest must match the release manifest before that partition
+is activated. A failed, interrupted, or corrupt download leaves the running
+firmware selected. Configuration, touch calibration, and SD-card files are not
+part of the OTA image. After reboot, the ESP32 confirms the new image only
+after display, storage, configuration, and background services finish starting.
+The bootloader can roll back if startup fails before that point.
+
 ## Browser portal
 
 The portal edits ordinary settings and write-only credentials. It also includes
-an SD-card file manager and a dedicated startup-artwork upload. Sections
-collapse to keep the page manageable on phones. Saves are validated, staged,
-and redirected back to the main page.
+an SD-card file manager, firmware update controls, and a dedicated
+startup-artwork upload. Sections collapse to keep the page manageable on
+phones. Saves are validated, staged, and redirected back to the main page.
 
 On first boot, the device opens the password-protected
 `desktopdashboard-setup` network for initial configuration.
@@ -136,9 +151,10 @@ On first boot, the device opens the password-protected
 
 ## Reliability behavior
 
-Network work runs in a serialized FreeRTOS worker on the other ESP32 core.
-LVGL rendering remains in the main loop. SD access uses one mutex, preventing
-portal operations from colliding with cached flight data or icon reads.
+Network work runs on the other ESP32 core. A shared mutex prevents OTA from
+overlapping the serialized live-data worker's TLS requests. LVGL rendering
+remains in the main loop. SD access uses a separate mutex, preventing portal
+operations from colliding with cached flight data or icon reads.
 
 Failed services show a useful error on their page without stopping the rest of
 the dashboard. Existing cached snapshots remain available while a new request

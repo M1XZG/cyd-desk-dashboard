@@ -86,6 +86,17 @@ supported. The firmware stages the file, checks its JPEG dimensions and size,
 then atomically replaces
 `/dashboard/startup.jpg`. Restart the dashboard to see the new image.
 
+### Firmware updates
+
+The firmware section shows the installed version and the newest stable GitHub
+release. **Check for updates** fetches a small release manifest. A newer release
+can then be installed after browser confirmation. If the versions match, the
+same control reinstalls the current release.
+
+During installation, the portal reports download progress and waits for the
+dashboard to restart. The firmware size and SHA-256 digest are verified before
+the inactive OTA partition is selected for boot.
+
 ## Save behavior
 
 The form includes a per-boot token. The firmware validates numeric ranges and

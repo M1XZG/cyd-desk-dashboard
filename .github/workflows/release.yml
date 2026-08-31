@@ -62,6 +62,11 @@ jobs:
             "$platformio_core_dir/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin" \
             release/
           cp SBOM.spdx.json release/
+          python tools/create_ota_manifest.py \
+            --firmware release/firmware.bin \
+            --version "$GITHUB_REF_NAME" \
+            --version-header firmware/include/firmware_version.h \
+            --output release/ota-manifest.json
           (
             cd release
             sha256sum \
@@ -69,7 +74,8 @@ jobs:
               bootloader.bin \
               boot_app0.bin \
               partitions.bin \
-              SBOM.spdx.json > SHA256SUMS
+              SBOM.spdx.json \
+              ota-manifest.json > SHA256SUMS
           )
 
       - name: Attest release artifacts
@@ -82,13 +88,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          release_flags=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
           gh release create "$GITHUB_REF_NAME" \
             release/firmware.bin \
             release/bootloader.bin \
             release/boot_app0.bin \
             release/partitions.bin \
             release/SBOM.spdx.json \
+            release/ota-manifest.json \
             release/SHA256SUMS \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
+            "${release_flags[@]}" \
             --generate-notes

@@ -22,6 +22,7 @@ artwork stored on a microSD card.
 - Sunday-first monthly calendar with previous and next month navigation
 - Password-protected first-run Wi-Fi setup access point
 - Authenticated browser settings portal and SD-card file manager
+- SHA-256-verified OTA firmware updates from stable GitHub releases
 - Replaceable SD-card icons with built-in fallbacks
 - Validated startup-artwork upload with an embedded fallback
 - Local clock with compact WiFi and SD health badges on every page
@@ -49,7 +50,7 @@ artwork stored on a microSD card.
 | [Architecture](docs/ARCHITECTURE.md) | Tasks, memory, rendering, networking, persistence, and safety |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common display, touch, Wi-Fi, SD, and service problems |
 | [Screenshots](docs/SCREENSHOTS.md) | Device and browser interface image index |
-| [Roadmap](docs/ROADMAP.md) | Planned OTA, tile ordering, and startup personalization |
+| [Roadmap](docs/ROADMAP.md) | Planned tile ordering and startup personalization |
 | [Asset sources](ASSET-SOURCES.md) | Artwork provenance and third-party licences |
 | [Contributing](CONTRIBUTING.md) | Development workflow and pull-request expectations |
 | [Security](SECURITY.md) | Credential handling, LAN exposure, and reporting |

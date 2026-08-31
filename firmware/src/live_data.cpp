@@ -154,6 +154,7 @@ SystemsData systemsData;
 QueueHandle_t jobQueue = nullptr;
 SemaphoreHandle_t dataMutex = nullptr;
 SemaphoreHandle_t storageMutex = nullptr;
+SemaphoreHandle_t networkMutex = nullptr;
 bool weatherBusy = false;
 bool flightsBusy = false;
 bool bambuddyBusy = false;
@@ -2205,6 +2206,9 @@ void networkWorker(void*) {
     settings = currentSettings;
     xSemaphoreGive(dataMutex);
 
+    if (networkMutex != nullptr) {
+      xSemaphoreTake(networkMutex, portMAX_DELAY);
+    }
     if (job == NetworkJob::weather) {
       fetchWeather(settings);
     } else if (job == NetworkJob::flights) {
@@ -2213,6 +2217,9 @@ void networkWorker(void*) {
       fetchBambuddy(settings);
     } else {
       fetchSystems(settings);
+    }
+    if (networkMutex != nullptr) {
+      xSemaphoreGive(networkMutex);
     }
   }
 }
@@ -2288,6 +2295,10 @@ void liveDataBegin() {
 
 void liveDataSetStorageMutex(SemaphoreHandle_t mutex) {
   storageMutex = mutex;
+}
+
+void liveDataSetNetworkMutex(SemaphoreHandle_t mutex) {
+  networkMutex = mutex;
 }
 
 void liveDataConfigure(const LiveDataSettings& settings) {

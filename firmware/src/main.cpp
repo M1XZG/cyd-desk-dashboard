@@ -8,13 +8,16 @@
 #include <SPI.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <esp_ota_ops.h>
 #include <lvgl.h>
 #include <new>
 
 #include "default_icons.h"
 #include "default_startup.h"
+#include "firmware_version.h"
 #include "lgfx_cyd.h"
 #include "live_data.h"
+#include "ota_update.h"
 
 namespace {
 
@@ -57,7 +60,17 @@ constexpr const char* kTileIds[] = {
 };
 
 constexpr const char* kSettingsNames[] = {
-    "Display", "Location", "Locale & Units", "Services", "Home Tiles", "System",
+    "Display",
+    "Location",
+    "Locale & Units",
+    "Services",
+    "Home Tiles",
+    "System",
+    "Firmware",
+};
+
+constexpr uint32_t kSettingsColors[] = {
+    0x2563EB, 0x0891B2, 0x7C3AED, 0x0F766E, 0xB45309, 0x475569, 0x166534,
 };
 
 constexpr const char kConfigExample[] = R"json({
@@ -164,6 +177,7 @@ String portalUploadError;
 bool portalUploadAccepted = false;
 bool portalUploadHasStorageLock = false;
 SemaphoreHandle_t sdMutex = nullptr;
+SemaphoreHandle_t networkMutex = nullptr;
 
 lv_disp_draw_buf_t drawBuffer;
 lv_color_t bufferOne[kScreenWidth * 10];
@@ -176,6 +190,10 @@ lv_obj_t* wifiSignalBars[4] = {};
 lv_obj_t* sdStatusLabel = nullptr;
 lv_obj_t* clockStatusLabel = nullptr;
 lv_obj_t* brightnessLabel = nullptr;
+lv_obj_t* firmwareStatusLabel = nullptr;
+lv_obj_t* firmwareProgressBar = nullptr;
+lv_obj_t* firmwareCheckButton = nullptr;
+lv_obj_t* firmwareInstallButton = nullptr;
 lv_obj_t* weatherIconImage = nullptr;
 lv_obj_t* weatherTemperatureLabel = nullptr;
 lv_obj_t* weatherConditionLabel = nullptr;
@@ -217,6 +235,7 @@ bool clockConfigured = false;
 bool clockSyncLogged = false;
 bool portalUsesBootstrapPassword = false;
 bool restartPending = false;
+bool otaRestartScheduled = false;
 bool tileEnabled[] = {true, true, true, true, true};
 enum class PendingNavigation : uint8_t {
   none,
@@ -269,6 +288,8 @@ LiveDataState renderedFlightsState = LiveDataState::idle;
 FlightsData renderedFlightsData;
 AircraftData selectedAircraft;
 int16_t calendarMonthOffset = 0;
+bool firmwareInstallArmed = false;
+uint32_t firmwareInstallArmUntil = 0;
 lv_point_t aircraftLinePoints[kMaximumTrackedAircraft][3][2];
 
 struct TouchCalibration {
@@ -1354,6 +1375,69 @@ void handleSetupSave() {
   restartAt = millis() + 1500;
 }
 
+void formatOtaStatus(
+    const OtaStatus& ota,
+    char* text,
+    size_t textSize) {
+  const char* latest =
+      ota.latestVersion[0] == '\0' ? "not checked" : ota.latestVersion;
+  if (ota.state == OtaState::checking) {
+    snprintf(
+        text,
+        textSize,
+        "Installed: %s\nLatest: checking...\nContacting GitHub Releases.",
+        ota.installedVersion);
+  } else if (ota.state == OtaState::updateAvailable) {
+    snprintf(
+        text,
+        textSize,
+        "Installed: %s\nLatest: %s\nA newer release is ready.",
+        ota.installedVersion,
+        latest);
+  } else if (ota.state == OtaState::upToDate) {
+    snprintf(
+        text,
+        textSize,
+        "Installed: %s\nLatest: %s\nThe installed release is current.",
+        ota.installedVersion,
+        latest);
+  } else if (ota.state == OtaState::downloading) {
+    const uint32_t percent =
+        ota.expectedBytes == 0
+            ? 0
+            : ota.downloadedBytes * 100U / ota.expectedBytes;
+    snprintf(
+        text,
+        textSize,
+        "Installing %s\n%lu / %lu bytes\n%lu%% complete",
+        latest,
+        static_cast<unsigned long>(ota.downloadedBytes),
+        static_cast<unsigned long>(ota.expectedBytes),
+        static_cast<unsigned long>(percent));
+  } else if (ota.state == OtaState::readyToRestart) {
+    snprintf(
+        text,
+        textSize,
+        "Installed %s successfully.\nRestarting the dashboard...",
+        latest);
+  } else if (ota.state == OtaState::error) {
+    snprintf(
+        text,
+        textSize,
+        "Installed: %s\nLatest: %s\nError: %s",
+        ota.installedVersion,
+        latest,
+        ota.error);
+  } else {
+    snprintf(
+        text,
+        textSize,
+        "Installed: %s\nLatest: %s\nCheck GitHub Releases when ready.",
+        ota.installedVersion,
+        latest);
+  }
+}
+
 void handlePortalRoot() {
   if (!requirePortalAuthentication()) {
     return;
@@ -1396,9 +1480,10 @@ void handlePortalRoot() {
   const String apiPath =
       String(config["services"]["bambuddy"]["api_base_path"] | "/api/v1");
   const String ssid = String(connections["wifi"]["ssid"] | "");
+  const OtaStatus ota = otaSnapshot();
 
   String html;
-  if (!html.reserve(13500)) {
+  if (!html.reserve(15000)) {
     settingsServer.send(
         503,
         "text/plain",
@@ -1613,6 +1698,53 @@ void handlePortalRoot() {
             "<p class=\"hint\">Portal username: admin. New passwords must contain at least eight characters.</p></section>");
 
   html += F("<button type=\"submit\">Save settings</button></form>"
+            "<section><h2>Firmware updates</h2><p>Installed version: <strong>");
+  html += htmlEscape(ota.installedVersion);
+  html += F("</strong><br>Latest release: <strong>");
+  html += ota.latestVersion[0] == '\0'
+              ? "not checked"
+              : htmlEscape(ota.latestVersion);
+  html += F("</strong></p>");
+  if (ota.state == OtaState::error) {
+    html += F("<p class=\"warning\">");
+    html += htmlEscape(ota.error);
+    html += F("</p>");
+  } else if (ota.state == OtaState::checking) {
+    html += F("<p class=\"hint\">Checking GitHub Releases now.</p>");
+  } else if (ota.state == OtaState::downloading) {
+    const uint32_t percent =
+        ota.expectedBytes == 0
+            ? 0
+            : ota.downloadedBytes * 100U / ota.expectedBytes;
+    html += F("<p class=\"hint\">Installing: ");
+    html += String(percent);
+    html += F("% complete.</p>");
+  } else if (ota.state == OtaState::updateAvailable) {
+    html += F("<p class=\"notice\">A newer firmware release is available.</p>");
+  } else if (ota.state == OtaState::upToDate) {
+    html += F("<p class=\"hint\">The installed release is current. "
+              "You can reinstall it if needed.</p>");
+  }
+  html += F("<form method=\"post\" action=\"/ota/check\">"
+            "<input type=\"hidden\" name=\"csrf\" value=\"");
+  html += portalCsrfToken;
+  html += F("\"><button type=\"submit\">Check for updates</button></form>");
+  if (ota.canInstall &&
+      (ota.state == OtaState::updateAvailable ||
+       ota.state == OtaState::upToDate)) {
+    html += F("<form method=\"post\" action=\"/ota/install\" "
+              "onsubmit=\"return confirm('Install firmware ");
+    html += htmlEscape(ota.latestVersion);
+    html += F(" and restart the dashboard?');\" style=\"margin-top:10px\">"
+              "<input type=\"hidden\" name=\"csrf\" value=\"");
+    html += portalCsrfToken;
+    html += F("\"><button class=\"danger\" type=\"submit\">");
+    html += ota.reinstall ? "Reinstall current release" : "Install update";
+    html += F("</button></form>");
+  }
+  html += F("<p class=\"hint\">OTA updates replace firmware only. "
+            "Configuration, touch calibration, and SD-card files are preserved."
+            "</p></section>"
             "<section><h2>Startup artwork</h2>"
             "<p class=\"hint\">Upload a 320x240 JPEG no larger than 200 KB. "
             "The image is validated before it replaces the active file.</p>"
@@ -1988,6 +2120,121 @@ void handlePortalRestart() {
         "</body></html>"));
   restartPending = true;
   restartAt = millis() + 750;
+}
+
+void sendOtaWaitPage(const char* title, const char* message) {
+  String html;
+  html.reserve(1800);
+  html += F(
+      "<!doctype html><html><head><meta charset=\"utf-8\">"
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+      "<title>");
+  html += title;
+  html += F(
+      "</title></head><body style=\"font-family:sans-serif;max-width:38rem;"
+      "margin:4rem auto;padding:0 1rem;background:#111827;color:#e5e7eb\">"
+      "<h1>");
+  html += title;
+  html += F("</h1><p>");
+  html += message;
+  html += F(
+      "</p><p id=\"status\">Working...</p><script>"
+      "async function poll(){try{let r=await fetch('/ota/status');"
+      "if(!r.ok)throw new Error('status unavailable');let s=await r.json();"
+      "let p=s.expected_bytes?Math.floor(s.downloaded_bytes*100/s.expected_bytes):0;"
+      "document.getElementById('status').textContent=s.state==='downloading'?"
+      "'Installing: '+p+'%':(s.error||s.message);"
+      "if(s.state==='error'){return;}"
+      "if(s.state==='ready_to_restart'){setTimeout(function(){location.replace('/');},20000);return;}"
+      "if(s.state!=='checking'&&s.state!=='downloading'){location.replace('/');return;}"
+      "}catch(e){document.getElementById('status').textContent="
+      "'Waiting for the dashboard...';}setTimeout(poll,1000);}poll();"
+      "</script></body></html>");
+  settingsServer.send(202, "text/html; charset=utf-8", html);
+}
+
+void handleOtaCheck() {
+  if (!requirePortalAuthentication()) {
+    return;
+  }
+  if (settingsServer.arg("csrf") != portalCsrfToken) {
+    settingsServer.send(403, "text/plain", "Invalid form token.");
+    return;
+  }
+  if (!otaRequestCheck()) {
+    settingsServer.send(409, "text/plain", "An update operation is already running.");
+    return;
+  }
+  sendOtaWaitPage(
+      "Checking for updates",
+      "The dashboard is checking the latest stable GitHub release.");
+}
+
+void handleOtaInstall() {
+  if (!requirePortalAuthentication()) {
+    return;
+  }
+  if (settingsServer.arg("csrf") != portalCsrfToken) {
+    settingsServer.send(403, "text/plain", "Invalid form token.");
+    return;
+  }
+  if (!otaRequestInstall()) {
+    settingsServer.send(
+        409,
+        "text/plain",
+        "Check for updates first, or wait for the current operation to finish.");
+    return;
+  }
+  sendOtaWaitPage(
+      "Installing firmware",
+      "Keep the dashboard powered on. It will restart after verification.");
+}
+
+const char* otaStateName(OtaState state) {
+  switch (state) {
+    case OtaState::checking:
+      return "checking";
+    case OtaState::upToDate:
+      return "up_to_date";
+    case OtaState::updateAvailable:
+      return "update_available";
+    case OtaState::downloading:
+      return "downloading";
+    case OtaState::readyToRestart:
+      return "ready_to_restart";
+    case OtaState::error:
+      return "error";
+    default:
+      return "idle";
+  }
+}
+
+void handleOtaStatus() {
+  if (!requirePortalAuthentication()) {
+    return;
+  }
+  const OtaStatus ota = otaSnapshot();
+  JsonDocument document;
+  document["state"] = otaStateName(ota.state);
+  document["installed_version"] = ota.installedVersion;
+  document["latest_version"] = ota.latestVersion;
+  document["expected_bytes"] = ota.expectedBytes;
+  document["downloaded_bytes"] = ota.downloadedBytes;
+  document["can_install"] = ota.canInstall;
+  document["reinstall"] = ota.reinstall;
+  document["error"] = ota.error;
+  if (ota.state == OtaState::readyToRestart) {
+    document["message"] = "Firmware verified. Restarting.";
+  } else if (ota.state == OtaState::upToDate) {
+    document["message"] = "The installed release is current.";
+  } else if (ota.state == OtaState::updateAvailable) {
+    document["message"] = "A newer release is available.";
+  } else {
+    document["message"] = "Ready.";
+  }
+  String response;
+  serializeJson(document, response);
+  settingsServer.send(200, "application/json", response);
 }
 
 void handleFileManager() {
@@ -2531,6 +2778,9 @@ void configurePortalRoutes() {
   settingsServer.on("/setup/save", HTTP_POST, handleSetupSave);
   settingsServer.on("/save", HTTP_POST, handlePortalSave);
   settingsServer.on("/restart", HTTP_POST, handlePortalRestart);
+  settingsServer.on("/ota/check", HTTP_POST, handleOtaCheck);
+  settingsServer.on("/ota/install", HTTP_POST, handleOtaInstall);
+  settingsServer.on("/ota/status", HTTP_GET, handleOtaStatus);
   settingsServer.on("/files", HTTP_GET, handleFileManager);
   settingsServer.on(
       "/files/upload",
@@ -2551,7 +2801,8 @@ void configurePortalRoutes() {
         "application/json",
         String("{\"status\":\"ok\",\"wifi\":") +
             (WiFi.status() == WL_CONNECTED ? "true" : "false") +
-            ",\"sd\":" + (sdReady ? "true" : "false") + "}");
+            ",\"sd\":" + (sdReady ? "true" : "false") +
+            ",\"version\":\"" + kFirmwareVersion + "\"}");
   });
   settingsServer.onNotFound([]() {
     if (setupMode) {
@@ -2766,6 +3017,7 @@ void showDisplaySettings();
 void showTileSettings();
 void showServicesSettings();
 void showSystemSettings();
+void showFirmwareSettings();
 void showWeather();
 void showFlights();
 void showBambuddy();
@@ -3013,6 +3265,153 @@ void showSystemSettings() {
   addSettingsBackButton(screen);
 }
 
+void firmwareCheckEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
+    firmwareInstallArmed = false;
+    otaRequestCheck();
+  }
+}
+
+void firmwareInstallEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
+    return;
+  }
+  const uint32_t now = millis();
+  if (!firmwareInstallArmed ||
+      static_cast<int32_t>(now - firmwareInstallArmUntil) >= 0) {
+    firmwareInstallArmed = true;
+    firmwareInstallArmUntil = now + 10000;
+    if (firmwareInstallButton != nullptr) {
+      lv_obj_t* label = lv_obj_get_child(firmwareInstallButton, 0);
+      if (label != nullptr) {
+        lv_label_set_text(label, "Tap again to confirm");
+      }
+    }
+    return;
+  }
+  firmwareInstallArmed = false;
+  otaRequestInstall();
+}
+
+void renderFirmwarePage() {
+  if (currentPage != "Firmware" || firmwareStatusLabel == nullptr) {
+    return;
+  }
+  if (firmwareInstallArmed &&
+      static_cast<int32_t>(millis() - firmwareInstallArmUntil) >= 0) {
+    firmwareInstallArmed = false;
+  }
+
+  const OtaStatus ota = otaSnapshot();
+  char text[260];
+  formatOtaStatus(ota, text, sizeof(text));
+  lv_label_set_text(firmwareStatusLabel, text);
+
+  const bool busy =
+      ota.state == OtaState::checking ||
+      ota.state == OtaState::downloading ||
+      ota.state == OtaState::readyToRestart;
+  if (firmwareCheckButton != nullptr) {
+    if (busy) {
+      lv_obj_add_state(firmwareCheckButton, LV_STATE_DISABLED);
+    } else {
+      lv_obj_clear_state(firmwareCheckButton, LV_STATE_DISABLED);
+    }
+  }
+  if (firmwareProgressBar != nullptr) {
+    if (ota.state == OtaState::downloading ||
+        ota.state == OtaState::readyToRestart) {
+      lv_obj_clear_flag(firmwareProgressBar, LV_OBJ_FLAG_HIDDEN);
+      const int percent =
+          ota.expectedBytes == 0
+              ? 0
+              : ota.downloadedBytes * 100U / ota.expectedBytes;
+      lv_bar_set_value(firmwareProgressBar, percent, LV_ANIM_OFF);
+    } else {
+      lv_obj_add_flag(firmwareProgressBar, LV_OBJ_FLAG_HIDDEN);
+    }
+  }
+  if (firmwareInstallButton != nullptr) {
+    if (!ota.canInstall ||
+        (ota.state != OtaState::updateAvailable &&
+         ota.state != OtaState::upToDate)) {
+      lv_obj_add_flag(firmwareInstallButton, LV_OBJ_FLAG_HIDDEN);
+    } else {
+      lv_obj_clear_flag(firmwareInstallButton, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_t* label = lv_obj_get_child(firmwareInstallButton, 0);
+      if (label != nullptr && !firmwareInstallArmed) {
+        lv_label_set_text(
+            label,
+            ota.reinstall ? "Reinstall release" : "Install update");
+      }
+    }
+  }
+}
+
+void showFirmwareSettings() {
+  currentPage = "Firmware";
+  firmwareInstallArmed = false;
+  lv_obj_t* screen = lv_scr_act();
+  lv_obj_clean(screen);
+  styleScreen(screen);
+  addStatusBar(screen);
+
+  firmwareStatusLabel = lv_label_create(screen);
+  lv_obj_set_width(firmwareStatusLabel, 296);
+  lv_obj_set_style_text_font(
+      firmwareStatusLabel,
+      &lv_font_montserrat_14,
+      0);
+  lv_obj_set_pos(firmwareStatusLabel, 12, 38);
+
+  firmwareProgressBar = lv_bar_create(screen);
+  lv_obj_set_size(firmwareProgressBar, 296, 14);
+  lv_obj_set_pos(firmwareProgressBar, 12, 118);
+  lv_bar_set_range(firmwareProgressBar, 0, 100);
+  lv_obj_add_flag(firmwareProgressBar, LV_OBJ_FLAG_HIDDEN);
+
+  firmwareCheckButton = lv_btn_create(screen);
+  lv_obj_set_size(firmwareCheckButton, 140, 38);
+  lv_obj_set_pos(firmwareCheckButton, 12, 145);
+  lv_obj_add_event_cb(
+      firmwareCheckButton,
+      firmwareCheckEvent,
+      LV_EVENT_CLICKED,
+      nullptr);
+  lv_obj_t* checkLabel = lv_label_create(firmwareCheckButton);
+  lv_label_set_text(checkLabel, "Check for updates");
+  lv_obj_set_style_text_font(checkLabel, &lv_font_montserrat_12, 0);
+  lv_obj_center(checkLabel);
+
+  firmwareInstallButton = lv_btn_create(screen);
+  lv_obj_set_size(firmwareInstallButton, 156, 38);
+  lv_obj_set_pos(firmwareInstallButton, 158, 145);
+  lv_obj_set_style_bg_color(
+      firmwareInstallButton,
+      lv_color_hex(0xB45309),
+      0);
+  lv_obj_add_event_cb(
+      firmwareInstallButton,
+      firmwareInstallEvent,
+      LV_EVENT_CLICKED,
+      nullptr);
+  lv_obj_t* installLabel = lv_label_create(firmwareInstallButton);
+  lv_label_set_text(installLabel, "Install update");
+  lv_obj_set_style_text_font(installLabel, &lv_font_montserrat_12, 0);
+  lv_obj_center(installLabel);
+
+  lv_obj_t* note = lv_label_create(screen);
+  lv_label_set_text(
+      note,
+      "Keep power connected during installation.");
+  lv_obj_set_style_text_font(note, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(note, lv_color_hex(0x94A3B8), 0);
+  lv_obj_set_pos(note, 89, 190);
+
+  addSettingsBackButton(screen);
+  renderFirmwarePage();
+}
+
 void settingsCategoryEvent(lv_event_t* event) {
   if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
     return;
@@ -3027,6 +3426,8 @@ void settingsCategoryEvent(lv_event_t* event) {
     showServicesSettings();
   } else if (strcmp(category, "System") == 0) {
     showSystemSettings();
+  } else if (strcmp(category, "Firmware") == 0) {
+    showFirmwareSettings();
   } else {
     showSettingsPlaceholder(category);
   }
@@ -3100,19 +3501,35 @@ void showTileSettings() {
 
 void showSettings() {
   currentPage = "Settings";
+  firmwareStatusLabel = nullptr;
+  firmwareProgressBar = nullptr;
+  firmwareCheckButton = nullptr;
+  firmwareInstallButton = nullptr;
   lv_obj_t* screen = lv_scr_act();
   lv_obj_clean(screen);
   styleScreen(screen);
   addStatusBar(screen);
 
+  lv_obj_t* content = lv_obj_create(screen);
+  lv_obj_set_size(content, 320, 178);
+  lv_obj_set_pos(content, 0, 29);
+  lv_obj_set_style_bg_opa(content, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(content, 0, 0);
+  lv_obj_set_style_pad_all(content, 0, 0);
+  lv_obj_set_scroll_dir(content, LV_DIR_VER);
+  lv_obj_set_scrollbar_mode(content, LV_SCROLLBAR_MODE_AUTO);
+
   constexpr int xPositions[] = {6, 111, 216};
-  constexpr int yPositions[] = {34, 115};
-  for (int index = 0; index < 6; ++index) {
-    lv_obj_t* tile = lv_btn_create(screen);
-    lv_obj_set_size(tile, 98, 75);
+  constexpr int yPositions[] = {4, 83, 162};
+  for (int index = 0; index < 7; ++index) {
+    lv_obj_t* tile = lv_btn_create(content);
+    lv_obj_set_size(tile, 98, 71);
     lv_obj_set_pos(tile, xPositions[index % 3], yPositions[index / 3]);
     lv_obj_set_style_radius(tile, 9, 0);
-    lv_obj_set_style_bg_color(tile, lv_color_hex(kTileColors[index]), 0);
+    lv_obj_set_style_bg_color(
+        tile,
+        lv_color_hex(kSettingsColors[index]),
+        0);
     lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
     lv_obj_set_style_shadow_width(tile, 0, 0);
     lv_obj_add_event_cb(
@@ -5022,13 +5439,31 @@ void showStartupScreen() {
   delay(1200);
 }
 
+void confirmRunningFirmware() {
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  esp_ota_img_states_t state = ESP_OTA_IMG_UNDEFINED;
+  if (running == nullptr ||
+      esp_ota_get_state_partition(running, &state) != ESP_OK ||
+      state != ESP_OTA_IMG_PENDING_VERIFY) {
+    return;
+  }
+  const esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
+  if (result == ESP_OK) {
+    Serial.println("[OTA] Running firmware passed startup validation");
+  } else {
+    Serial.printf(
+        "[OTA] Could not confirm running firmware: %s\n",
+        esp_err_to_name(result));
+  }
+}
+
 }  // namespace
 
 void setup() {
   Serial.begin(115200);
   delay(300);
   Serial.println();
-  Serial.println("[BOOT] ESP32 Dashboard first-run firmware");
+  Serial.printf("[BOOT] ESP32 Dashboard firmware %s\n", kFirmwareVersion);
 
   sdMutex = xSemaphoreCreateMutex();
   if (sdMutex == nullptr) {
@@ -5037,13 +5472,22 @@ void setup() {
       delay(1000);
     }
   }
+  networkMutex = xSemaphoreCreateMutex();
+  if (networkMutex == nullptr) {
+    Serial.println("[BOOT] Could not create network mutex");
+    while (true) {
+      delay(1000);
+    }
+  }
   liveDataSetStorageMutex(sdMutex);
+  liveDataSetNetworkMutex(networkMutex);
   initialiseTouch();
   initialiseStorage();
   ensureSdScaffold();
   initialiseDisplay();
   showStartupScreen();
   liveDataBegin();
+  otaBegin(networkMutex);
 
   const bool forceCalibration = digitalRead(kTouchIrq) == LOW;
   if (forceCalibration || !loadTouchCalibration()) {
@@ -5063,6 +5507,7 @@ void setup() {
   initialisePortalCredentials();
   startWifi();
   showHome();
+  confirmRunningFirmware();
 
   Serial.printf("[BOOT] Heap free: %u bytes\n", ESP.getFreeHeap());
   Serial.println("[BOOT] Ready");
@@ -5105,6 +5550,13 @@ void loop() {
     ESP.restart();
   }
 
+  const OtaStatus ota = otaSnapshot();
+  if (ota.state == OtaState::readyToRestart && !otaRestartScheduled) {
+    otaRestartScheduled = true;
+    restartPending = true;
+    restartAt = millis() + 3000;
+  }
+
   if (millis() - lastStatusUpdate >= 1000) {
     lastStatusUpdate = millis();
     updateStatusBar();
@@ -5116,6 +5568,7 @@ void loop() {
     renderFlightsPage();
     renderBambuddyPage();
     renderSystemsPage();
+    renderFirmwarePage();
 
     if (WiFi.status() == WL_CONNECTED) {
       {
