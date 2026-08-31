@@ -37,6 +37,8 @@ artwork stored on a microSD card.
    [browser portal](docs/WEB-PORTAL.md).
 4. Use the [configuration reference](docs/CONFIGURATION.md) for manual SD-card
    setup or recovery.
+5. Follow the [OTA update guide](docs/OTA-UPDATES.md) for future firmware
+   releases.
 
 ## Documentation
 
@@ -44,6 +46,7 @@ artwork stored on a microSD card.
 | --- | --- |
 | [Features](docs/FEATURES.md) | Every screen, data source, control, and fallback |
 | [Getting started](docs/GETTING-STARTED.md) | Build, flash, SD preparation, calibration, and first login |
+| [OTA updates](docs/OTA-UPDATES.md) | Install, verify, publish, and recover over-the-air releases |
 | [Hardware](docs/HARDWARE.md) | Supported board, pin use, storage, and power expectations |
 | [Web portal](docs/WEB-PORTAL.md) | Portal sections, credentials, saves, and file manager |
 | [Configuration](docs/CONFIGURATION.md) | JSON files, accepted values, secrets, and examples |

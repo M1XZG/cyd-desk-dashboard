@@ -56,3 +56,7 @@ ESP32 rollback-enabled bootloader retains the previous slot until then.
 OTA cannot replace `bootloader.bin`, `partitions.bin`, or `boot_app0.bin`.
 Releases that change those components must say so in their release notes and
 require a full USB flash.
+
+The step-by-step device installation, maintainer release checklist, post-update
+verification, and recovery procedure are in
+[Over-the-air updates](docs/OTA-UPDATES.md).

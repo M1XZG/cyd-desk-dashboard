@@ -146,6 +146,9 @@ part of the OTA image. After reboot, the ESP32 confirms the new image only
 after display, storage, configuration, and background services finish starting.
 The bootloader can roll back if startup fails before that point.
 
+See [Over-the-air updates](OTA-UPDATES.md) for device installation, release
+publication, post-update checks, and USB recovery.
+
 ## Browser portal
 
 The portal edits ordinary settings and write-only credentials. It also includes

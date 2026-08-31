@@ -21,6 +21,11 @@ pio run -e cyd -t upload --upload-port /dev/ttyUSB0
 Use the board's COM port on Windows. See the full
 [getting-started guide](../docs/GETTING-STARTED.md) before flashing a new board.
 
+Existing installations running `v1.1.0` or later can install stable tagged
+releases without USB. The version in `include/firmware_version.h` must match
+the release tag. Follow the build, tag, publication, device installation, and
+rollback checks in the [OTA update guide](../docs/OTA-UPDATES.md).
+
 ## Source
 
 `src/main.cpp` owns initialization, configuration, the web portal, LVGL pages,

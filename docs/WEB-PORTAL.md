@@ -97,6 +97,14 @@ During installation, the portal reports download progress and waits for the
 dashboard to restart. The firmware size and SHA-256 digest are verified before
 the inactive OTA partition is selected for boot.
 
+![Firmware update section after installing v1.1.3](images/web-portal-firmware.png)
+
+`Latest release: not checked` is the normal initial state. Select **Check for
+updates** to contact GitHub. Keep the device powered during installation and
+allow about 20 seconds for the portal to return after restart. See
+[Over-the-air updates](OTA-UPDATES.md) for the complete user and release
+process.
+
 ## Save behavior
 
 The form includes a per-boot token. The firmware validates numeric ranges and

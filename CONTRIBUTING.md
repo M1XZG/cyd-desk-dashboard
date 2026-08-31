@@ -40,3 +40,10 @@ Never include real credentials or private service addresses.
 
 Tagged builds follow the process in [RELEASES.md](RELEASES.md). Keep the SBOM
 and checked-in dependency pins synchronized when changing build inputs.
+
+Before tagging firmware, update `firmware/include/firmware_version.h`, rebuild,
+refresh `firmware/BUILD-INFO.txt`, and test the candidate on the physical
+no-PSRAM CYD. The tag must exactly match the version header. After GitHub
+publishes the release, install it from the previous version through OTA and
+confirm the new version in `/health`. Follow the complete checklist in
+[Over-the-air updates](docs/OTA-UPDATES.md).

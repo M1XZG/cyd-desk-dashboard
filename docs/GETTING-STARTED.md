@@ -143,3 +143,6 @@ requires the full USB flashing procedure.
 
 Custom startup artwork remains visible for four seconds after a restart. The
 embedded standard artwork uses the shorter startup delay.
+
+The complete installation, verification, failure recovery, and maintainer
+release procedure is in [Over-the-air updates](OTA-UPDATES.md).

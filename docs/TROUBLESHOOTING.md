@@ -73,6 +73,36 @@ must be able to reach the Bambuddy host from its Wi-Fi network.
 The monitor must be enabled and have both a name and host. Disabled or
 incomplete monitors are skipped and omitted from the device page.
 
+## Firmware update says not checked
+
+This is the normal state before a manual check. Open **Settings > Firmware** or
+the browser portal's **Firmware updates** section and select **Check for
+updates**.
+
+## Firmware update check fails
+
+Confirm Wi-Fi, DNS, internet access, and synchronized time on the Systems page.
+Wait for Weather or Flights activity to finish, then retry. OTA shares the
+device's single TLS network slot with live-data requests because the original
+CYD has no PSRAM.
+
+An update-check error does not change the installed firmware. If GitHub returns
+HTTP `-1`, restart the dashboard, wait for the clock to appear in the top bar,
+and check again.
+
+## Firmware installation fails or stops
+
+Leave the device powered until it reports an error or restarts. A short,
+corrupt, or interrupted download is rejected before the new partition is
+activated, so the existing firmware remains bootable. Restart and retry from a
+stable Wi-Fi connection.
+
+If the new image begins booting but cannot finish startup, the
+rollback-enabled bootloader can select the previous OTA slot. Use a full USB
+flash only if the dashboard no longer reaches the interface or the release
+changes the bootloader or partition table. The complete procedure is in
+[Over-the-air updates](OTA-UPDATES.md).
+
 ## Calendar shows the wrong day
 
 Calendar uses the local UTC offset received with successful Weather data. Until
