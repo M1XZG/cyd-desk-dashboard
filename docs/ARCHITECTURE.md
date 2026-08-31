@@ -53,8 +53,10 @@ overrides, and the generated bootstrap portal password.
 ## Networking
 
 Public HTTPS providers use embedded root certificates and require a synchronized
-clock before certificate validation. Airport-Data's current P-384 issuer chain
-cannot be verified within the original CYD's contiguous heap, so aircraft-photo
+clock before certificate validation. Open-Meteo is trusted at Let's Encrypt's
+`Root YR` certificate so the no-PSRAM board does not have to verify the extra
+4096-bit bridge to ISRG Root X1. Airport-Data's current P-384 issuer chain cannot
+be verified within the original CYD's contiguous heap, so aircraft-photo
 requests use encrypted but certificate-unverified transport. Those requests
 contain no credentials, accept only exact Airport-Data URL prefixes, enforce
 small response limits, and validate JPEG markers before display. SNTP starts

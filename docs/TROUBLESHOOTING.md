@@ -48,8 +48,9 @@ Set a place or postcode, confirm DNS and internet access on the Systems page,
 and wait for the clock to synchronize. TLS requests cannot be validated before
 the device has a plausible time. The dashboard caches resolved coordinates and
 limits weather refreshes to once every ten minutes. If Open-Meteo returns HTTP
-429, the firmware uses MET Norway until the Open-Meteo limit has had time to
-reset.
+429 or its forecast connection fails, the firmware uses MET Norway. Firmware
+`v1.1.4` also trusts Open-Meteo's current Let's Encrypt `Root YR` chain directly
+so the no-PSRAM board does not have to validate its larger bridge certificate.
 
 ## Flights reports no aircraft
 

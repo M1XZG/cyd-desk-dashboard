@@ -24,6 +24,8 @@ When the installed version is already current, the install control becomes
 **Reinstall current release**. This follows the same verification and restart
 process.
 
+![The device reporting that v1.1.3 is current](images/firmware-screen.jpg)
+
 ## Install an update from the browser portal
 
 1. Open the dashboard address shown under **Settings > System**, then sign in.

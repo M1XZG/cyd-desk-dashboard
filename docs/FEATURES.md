@@ -25,9 +25,10 @@ cannot be displayed.
 
 Weather searches Open-Meteo by town or postcode, then requests current and
 daily conditions for the selected coordinates. If the public forecast endpoint
-is rate-limited, the dashboard temporarily uses MET Norway's Locationforecast
-service. Sunrise, sunset, and moon data then come from sunrise-sunset.org. The
-active data sources are credited on the Weather page. The page shows:
+is rate-limited or cannot be reached, the dashboard temporarily uses MET
+Norway's Locationforecast service. Sunrise, sunset, and moon data then come
+from sunrise-sunset.org. The active data sources are credited on the Weather
+page. The page shows:
 
 - Current temperature and apparent temperature
 - Weather condition with a matching day or night icon
@@ -68,6 +69,8 @@ usable and show a high-contrast status message in the image frame. Temporary
 lookup or download failures are retried once automatically.
 
 ![Aircraft detail screen](images/aircraft-screen.jpg)
+
+![Aircraft detail screen when no photograph is available](images/aircraft-no-photo-screen.jpg)
 
 ## Bambuddy
 
@@ -122,6 +125,10 @@ kept in the browser portal rather than an on-screen keyboard.
 
 ![On-device settings menu](images/settings-screen.jpg)
 
+The Firmware tile sits on the final row of the scrollable Settings page.
+
+![Firmware tile on the scrollable Settings page](images/settings-firmware-screen.jpg)
+
 Every page has a compact top bar. WiFi and SD badges use green for available
 and red for unavailable. Four ascending bars beside WiFi show the current
 signal level. The local time appears at the right after SNTP synchronizes.
@@ -145,6 +152,8 @@ firmware selected. Configuration, touch calibration, and SD-card files are not
 part of the OTA image. After reboot, the ESP32 confirms the new image only
 after display, storage, configuration, and background services finish starting.
 The bootloader can roll back if startup fails before that point.
+
+![Installed firmware and current GitHub release on the device](images/firmware-screen.jpg)
 
 See [Over-the-air updates](OTA-UPDATES.md) for device installation, release
 publication, post-update checks, and USB recovery.
