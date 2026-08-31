@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <DNSServer.h>
 #include <ESPmDNS.h>
 #include <FS.h>
 #include <Preferences.h>
@@ -30,6 +31,10 @@ constexpr int kTouchIrq = 36;
 constexpr int kTouchClock = 25;
 constexpr int kTouchMosi = 32;
 constexpr int kTouchMiso = 39;
+constexpr const char* kSetupAccessPointSsid = "desktopdashboard-setup";
+constexpr const char* kSetupAccessPointPassword = "deskdashboard";
+constexpr const char* kDefaultPosixTimezone =
+    "GMT0BST,M3.5.0/1,M10.5.0";
 constexpr uint32_t kTileColors[] = {
     0x2563EB, 0x0891B2, 0x7C3AED, 0x0F766E, 0xB45309, 0x475569,
 };
@@ -64,7 +69,8 @@ constexpr const char kConfigExample[] = R"json({
   },
   "locale": {
     "time_format": "24h",
-    "date_format": "yyyy-dd-mm"
+    "date_format": "yyyy-dd-mm",
+    "posix_timezone": "GMT0BST,M3.5.0/1,M10.5.0"
   },
   "location": {
     "method": "search",
@@ -151,6 +157,7 @@ constexpr const char kConnectionsExample[] = R"json({
 LGFX_CYD display;
 SPIClass sdSpi(VSPI);
 WebServer settingsServer(80);
+DNSServer setupDnsServer;
 File portalUploadFile;
 String portalUploadTarget;
 String portalUploadError;
@@ -164,7 +171,9 @@ lv_color_t bufferTwo[kScreenWidth * 10];
 lv_disp_drv_t displayDriver;
 lv_indev_drv_t inputDriver;
 
-lv_obj_t* statusLabel = nullptr;
+lv_obj_t* wifiStatusLabel = nullptr;
+lv_obj_t* sdStatusLabel = nullptr;
+lv_obj_t* clockStatusLabel = nullptr;
 lv_obj_t* brightnessLabel = nullptr;
 lv_obj_t* weatherIconImage = nullptr;
 lv_obj_t* weatherTemperatureLabel = nullptr;
@@ -199,6 +208,12 @@ bool connectionsReady = false;
 bool wifiStarted = false;
 bool portalStarted = false;
 bool portalRoutesConfigured = false;
+bool mdnsStarted = false;
+bool setupAccessPointStarted = false;
+bool setupMode = false;
+bool setupProvisioningAllowed = false;
+bool clockConfigured = false;
+bool clockSyncLogged = false;
 bool portalUsesBootstrapPassword = false;
 bool restartPending = false;
 bool tileEnabled[] = {true, true, true, true, true};
@@ -217,6 +232,8 @@ uint8_t displayRotation = 1;
 String wifiSsid;
 String wifiPassword;
 String locationSearch;
+String timeFormat = "24h";
+String posixTimezone = kDefaultPosixTimezone;
 String temperatureUnit = "celsius";
 String windUnit = "kmh";
 String pressureUnit = "hpa";
@@ -402,6 +419,8 @@ void loadConfiguration() {
   wifiPassword = "";
   configuredPortalPassword = "";
   locationSearch = "";
+  timeFormat = "24h";
+  posixTimezone = kDefaultPosixTimezone;
   temperatureUnit = "celsius";
   windUnit = "kmh";
   pressureUnit = "hpa";
@@ -424,6 +443,9 @@ void loadConfiguration() {
   if (configReady) {
     setBacklight(config["display"]["brightness_percent"] | brightnessPercent);
     locationSearch = String(config["location"]["search"] | "");
+    timeFormat = String(config["locale"]["time_format"] | "24h");
+    posixTimezone =
+        String(config["locale"]["posix_timezone"] | kDefaultPosixTimezone);
     temperatureUnit =
         String(config["weather"]["temperature_unit"] | "celsius");
     windUnit = String(config["weather"]["wind_speed_unit"] | "kmh");
@@ -487,6 +509,11 @@ void loadConfiguration() {
   if (connectionsReady) {
     wifiSsid = String(connections["wifi"]["ssid"] | "");
     wifiPassword = String(connections["wifi"]["password"] | "");
+    if (wifiSsid == "YOUR_WIFI_NETWORK" &&
+        wifiPassword == "YOUR_WIFI_PASSWORD") {
+      wifiSsid = "";
+      wifiPassword = "";
+    }
     const char* bambuddyKey =
         connections["services"]["bambuddy_readonly_api_key"] | "";
     bambuddyKeyPresent = strlen(bambuddyKey) > 0;
@@ -501,6 +528,10 @@ void loadConfiguration() {
     configuredPortalPassword =
         String(connections["device"]["settings_portal_password"] | "");
   }
+  setupProvisioningAllowed =
+      !connectionsReady ||
+      (wifiSsid.isEmpty() && wifiPassword.isEmpty() &&
+       configuredPortalPassword.isEmpty());
 
   LiveDataSettings liveSettings;
   strlcpy(
@@ -725,6 +756,64 @@ bool validUploadFilename(const String& filename) {
   return true;
 }
 
+bool jpegDimensions(File& file, uint16_t& width, uint16_t& height) {
+  width = 0;
+  height = 0;
+  if (file.size() < 4 || !file.seek(file.size() - 2) ||
+      file.read() != 0xFF || file.read() != 0xD9 ||
+      !file.seek(0) || file.read() != 0xFF || file.read() != 0xD8) {
+    return false;
+  }
+
+  while (file.available()) {
+    int prefix = file.read();
+    while (prefix != 0xFF && prefix >= 0) {
+      prefix = file.read();
+    }
+    int marker = file.read();
+    while (marker == 0xFF) {
+      marker = file.read();
+    }
+    if (marker < 0 || marker == 0xD9 || marker == 0xDA) {
+      break;
+    }
+    if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+      continue;
+    }
+
+    const int high = file.read();
+    const int low = file.read();
+    if (high < 0 || low < 0) {
+      return false;
+    }
+    const uint16_t segmentLength =
+        static_cast<uint16_t>((high << 8) | low);
+    if (segmentLength < 2) {
+      return false;
+    }
+    if (marker == 0xC0) {
+      if (segmentLength < 7 || file.read() < 0) {
+        return false;
+      }
+      const int heightHigh = file.read();
+      const int heightLow = file.read();
+      const int widthHigh = file.read();
+      const int widthLow = file.read();
+      if (heightHigh < 0 || heightLow < 0 ||
+          widthHigh < 0 || widthLow < 0) {
+        return false;
+      }
+      height = static_cast<uint16_t>((heightHigh << 8) | heightLow);
+      width = static_cast<uint16_t>((widthHigh << 8) | widthLow);
+      return true;
+    }
+    if (!file.seek(file.position() + segmentLength - 2)) {
+      return false;
+    }
+  }
+  return false;
+}
+
 class ScopedSdLock {
  public:
   explicit ScopedSdLock(
@@ -923,6 +1012,46 @@ bool writeJsonStage(const char* path, JsonDocument& document, String& error) {
   return true;
 }
 
+bool writePortalTransactionMarker(
+    bool hadConfig,
+    bool hadConnections,
+    String& error) {
+  constexpr const char* markerPath = "/dashboard/portal.transaction";
+  SD.remove(markerPath);
+  File marker = SD.open(markerPath, FILE_WRITE);
+  if (!marker) {
+    error = "Could not create the configuration transaction marker.";
+    return false;
+  }
+  const char flags[] = {
+      hadConfig ? '1' : '0',
+      hadConnections ? '1' : '0',
+  };
+  const bool written = marker.write(
+      reinterpret_cast<const uint8_t*>(flags),
+      sizeof(flags)) == sizeof(flags);
+  marker.flush();
+  marker.close();
+  if (!written) {
+    SD.remove(markerPath);
+    error = "Could not write the configuration transaction marker.";
+    return false;
+  }
+  marker = SD.open(markerPath, FILE_READ);
+  char verification[2] = {};
+  const bool verified =
+      marker &&
+      marker.read(reinterpret_cast<uint8_t*>(verification), 2) == 2 &&
+      verification[0] == flags[0] && verification[1] == flags[1];
+  marker.close();
+  if (!verified) {
+    SD.remove(markerPath);
+    error = "Could not verify the configuration transaction marker.";
+    return false;
+  }
+  return true;
+}
+
 bool replacePortalDocuments(
     JsonDocument& config,
     JsonDocument& connections,
@@ -935,7 +1064,13 @@ bool replacePortalDocuments(
       "/dashboard/connections.portal-new.json";
   constexpr const char* connectionsBackup =
       "/dashboard/connections.portal-backup.json";
+  constexpr const char* transactionMarker =
+      "/dashboard/portal.transaction";
 
+  if (SD.exists(transactionMarker)) {
+    error = "An interrupted configuration save requires a restart.";
+    return false;
+  }
   if (!writeJsonStage(configStage, config, error)) {
     return false;
   }
@@ -951,37 +1086,64 @@ bool replacePortalDocuments(
     SD.remove(connectionsBackup);
   }
 
-  if (!SD.rename(configLive, configBackup)) {
+  const bool hadConfig = SD.exists(configLive);
+  const bool hadConnections = SD.exists(connectionsLive);
+  if (!writePortalTransactionMarker(hadConfig, hadConnections, error)) {
     SD.remove(configStage);
     SD.remove(connectionsStage);
+    return false;
+  }
+  if (hadConfig && !SD.rename(configLive, configBackup)) {
+    SD.remove(configStage);
+    SD.remove(connectionsStage);
+    SD.remove(transactionMarker);
     error = "Could not preserve config.json before saving.";
     return false;
   }
 
-  if (!SD.rename(connectionsLive, connectionsBackup)) {
-    SD.rename(configBackup, configLive);
+  if (hadConnections &&
+      !SD.rename(connectionsLive, connectionsBackup)) {
+    if (hadConfig) {
+      SD.rename(configBackup, configLive);
+    }
     SD.remove(configStage);
     SD.remove(connectionsStage);
+    SD.remove(transactionMarker);
     error = "Could not preserve connections.json before saving.";
     return false;
   }
 
   if (!SD.rename(configStage, configLive)) {
-    SD.rename(configBackup, configLive);
-    SD.rename(connectionsBackup, connectionsLive);
+    if (hadConfig) {
+      SD.rename(configBackup, configLive);
+    }
+    if (hadConnections) {
+      SD.rename(connectionsBackup, connectionsLive);
+    }
     SD.remove(connectionsStage);
+    SD.remove(transactionMarker);
     error = "Could not install the new config.json.";
     return false;
   }
 
   if (!SD.rename(connectionsStage, connectionsLive)) {
     SD.remove(configLive);
-    SD.rename(configBackup, configLive);
-    SD.rename(connectionsBackup, connectionsLive);
+    if (hadConfig) {
+      SD.rename(configBackup, configLive);
+    }
+    if (hadConnections) {
+      SD.rename(connectionsBackup, connectionsLive);
+    }
+    SD.remove(transactionMarker);
     error = "Could not install the new connections.json.";
     return false;
   }
 
+  if (SD.exists(transactionMarker) &&
+      !SD.remove(transactionMarker)) {
+    error = "Could not commit the configuration transaction.";
+    return false;
+  }
   SD.remove(configBackup);
   SD.remove(connectionsBackup);
   return true;
@@ -1025,6 +1187,19 @@ bool validPortalHost(const String& host) {
   return true;
 }
 
+bool validPosixTimezone(const String& timezone) {
+  if (timezone.isEmpty() || timezone.length() > 80) {
+    return false;
+  }
+  for (size_t index = 0; index < timezone.length(); ++index) {
+    const uint8_t character = static_cast<uint8_t>(timezone[index]);
+    if (character < 33 || character > 126) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void appendPortalOption(
     String& html,
     const char* value,
@@ -1037,6 +1212,145 @@ void appendPortalOption(
   html += '>';
   html += label;
   html += F("</option>");
+}
+
+bool loadSetupDocuments(
+    JsonDocument& config,
+    JsonDocument& connections,
+    String& error) {
+  if (!sdReady) {
+    error = "Insert a writable microSD card before setup.";
+    return false;
+  }
+  if (!loadJsonFile("/dashboard/config.json", config) &&
+      deserializeJson(config, kConfigExample)) {
+    error = "Could not prepare the default configuration.";
+    return false;
+  }
+  if (!loadJsonFile("/dashboard/connections.json", connections) &&
+      deserializeJson(connections, kConnectionsExample)) {
+    error = "Could not prepare the default connection settings.";
+    return false;
+  }
+  return true;
+}
+
+void handleSetupRoot() {
+  String html;
+  if (!html.reserve(5000)) {
+    settingsServer.send(503, "text/plain", "Not enough memory for setup.");
+    return;
+  }
+  html += F(
+      "<!doctype html><html><head><meta charset=\"utf-8\">"
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+      "<title>Desk Dashboard Setup</title><style>"
+      ":root{color-scheme:dark;font-family:system-ui,sans-serif}"
+      "body{margin:0;background:#0f172a;color:#e2e8f0}"
+      "main{max-width:560px;margin:auto;padding:24px}"
+      "section{background:#1e293b;border:1px solid #334155;border-radius:12px;"
+      "padding:18px}p{color:#a5b4cc;line-height:1.5}"
+      "label{display:flex;flex-direction:column;gap:6px;margin:14px 0;"
+      "font-weight:650}input{box-sizing:border-box;width:100%;padding:11px;"
+      "border-radius:7px;border:1px solid #475569;background:#0f172a;"
+      "color:#f8fafc}button{padding:12px 18px;border:0;border-radius:8px;"
+      "background:#2563eb;color:white;font-weight:700;cursor:pointer}"
+      ".hint{font-size:.9rem}</style></head><body><main><section>"
+      "<h1>Desk Dashboard setup</h1>"
+      "<p>Connect the dashboard to a 2.4 GHz Wi-Fi network and create the "
+      "password used by its browser portal.</p>"
+      "<form method=\"post\" action=\"/setup/save\">"
+      "<input type=\"hidden\" name=\"csrf\" value=\"");
+  html += portalCsrfToken;
+  html += F(
+      "\"><label>Wi-Fi name<input name=\"wifi_ssid\" maxlength=\"32\" "
+      "autocomplete=\"username\" required></label>"
+      "<label>Wi-Fi password<input name=\"wifi_password\" type=\"password\" "
+      "maxlength=\"64\" autocomplete=\"current-password\"></label>"
+      "<label>Portal password<input name=\"portal_password\" type=\"password\" "
+      "minlength=\"8\" maxlength=\"64\" autocomplete=\"new-password\" required>"
+      "</label><label>POSIX timezone<input name=\"posix_timezone\" "
+      "maxlength=\"80\" value=\"");
+  html += htmlEscape(posixTimezone);
+  html += F(
+      "\" required></label><p class=\"hint\">The timezone controls the clock "
+      "and Calendar, including daylight-saving changes.</p>"
+      "<button type=\"submit\">Save and restart</button></form>"
+      "</section></main></body></html>");
+  settingsServer.send(200, "text/html; charset=utf-8", html);
+}
+
+void handleSetupSave() {
+  if (!setupMode || !setupProvisioningAllowed) {
+    settingsServer.send(404, "text/plain", "Setup mode is not active.");
+    return;
+  }
+  if (settingsServer.arg("csrf") != portalCsrfToken) {
+    settingsServer.send(403, "text/plain", "Invalid form token.");
+    return;
+  }
+
+  String ssid = settingsServer.arg("wifi_ssid");
+  const String password = settingsServer.arg("wifi_password");
+  const String newPortalPassword = settingsServer.arg("portal_password");
+  String timezone = settingsServer.arg("posix_timezone");
+  ssid.trim();
+  timezone.trim();
+  if (ssid.isEmpty() || ssid.length() > 32 || password.length() > 64 ||
+      newPortalPassword.length() < 8 ||
+      newPortalPassword.length() > 64 ||
+      !validPosixTimezone(timezone)) {
+    settingsServer.send(400, "text/plain", "One or more setup values are invalid.");
+    return;
+  }
+
+  JsonDocument config;
+  JsonDocument connections;
+  String error;
+  {
+    ScopedSdLock lock;
+    if (!lock) {
+      settingsServer.send(503, "text/plain", "The SD card is busy. Try again.");
+      return;
+    }
+    if (!loadSetupDocuments(config, connections, error)) {
+      settingsServer.send(500, "text/plain", error);
+      return;
+    }
+    if (String(config["location"]["search"] | "") ==
+        "YOUR TOWN OR POSTCODE") {
+      config["location"]["search"] = "";
+    }
+    if (String(config["services"]["bambuddy"]["host"] | "") ==
+        "192.168.1.50") {
+      config["services"]["bambuddy"]["host"] = "";
+    }
+    if (String(
+            connections["services"]["bambuddy_readonly_api_key"] | "") ==
+        "bb_READ_STATUS_KEY_ONLY") {
+      connections["services"]["bambuddy_readonly_api_key"] = "";
+    }
+    config["locale"]["posix_timezone"] = timezone;
+    connections["wifi"]["ssid"] = ssid;
+    connections["wifi"]["password"] = password;
+    connections["device"]["settings_portal_password"] =
+        newPortalPassword;
+    if (!replacePortalDocuments(config, connections, error)) {
+      settingsServer.send(500, "text/plain", error);
+      return;
+    }
+  }
+
+  settingsServer.send(
+      200,
+      "text/html; charset=utf-8",
+      "<!doctype html><html><head><meta charset=\"utf-8\">"
+      "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+      "<meta http-equiv=\"refresh\" content=\"15;url=/\"></head>"
+      "<body><h1>Settings saved</h1><p>The dashboard is restarting and "
+      "connecting to your Wi-Fi network.</p></body></html>");
+  restartPending = true;
+  restartAt = millis() + 1500;
 }
 
 void handlePortalRoot() {
@@ -1063,6 +1377,8 @@ void handlePortalRoot() {
   const String timeFormat = String(config["locale"]["time_format"] | "24h");
   const String dateFormat =
       String(config["locale"]["date_format"] | "yyyy-dd-mm");
+  const String timezone =
+      String(config["locale"]["posix_timezone"] | kDefaultPosixTimezone);
   const String temperatureUnit =
       String(config["weather"]["temperature_unit"] | "celsius");
   const String windUnit =
@@ -1081,7 +1397,7 @@ void handlePortalRoot() {
   const String ssid = String(connections["wifi"]["ssid"] | "");
 
   String html;
-  if (!html.reserve(12000)) {
+  if (!html.reserve(13500)) {
     settingsServer.send(
         503,
         "text/plain",
@@ -1126,6 +1442,11 @@ void handlePortalRoot() {
         "<p class=\"notice\"><strong>Settings saved.</strong> The live JSON "
         "files were validated and replaced safely.</p>");
   }
+  if (settingsServer.arg("startup") == "1") {
+    html += F(
+        "<p class=\"notice\"><strong>Startup artwork updated.</strong> "
+        "Restart the device to see it.</p>");
+  }
   html += F(
       "<a class=\"nav\" href=\"/files\">Browse SD card files</a>"
       "<form method=\"post\" action=\"/save\">");
@@ -1152,7 +1473,9 @@ void handlePortalRoot() {
   appendPortalOption(html, "yyyy-mm-dd", "YYYY-MM-DD", dateFormat);
   appendPortalOption(html, "dd-mm-yyyy", "DD-MM-YYYY", dateFormat);
   appendPortalOption(html, "mm-dd-yyyy", "MM-DD-YYYY", dateFormat);
-  html += F("</select></label><label>Temperature<select name=\"temperature_unit\">");
+  html += F("</select></label><label>POSIX timezone<input name=\"posix_timezone\" maxlength=\"80\" value=\"");
+  html += htmlEscape(timezone);
+  html += F("\"></label><label>Temperature<select name=\"temperature_unit\">");
   appendPortalOption(html, "celsius", "Celsius", temperatureUnit);
   appendPortalOption(html, "fahrenheit", "Fahrenheit", temperatureUnit);
   html += F("</select></label><label>Wind speed<select name=\"wind_unit\">");
@@ -1289,6 +1612,17 @@ void handlePortalRoot() {
             "<p class=\"hint\">Portal username: admin. New passwords must contain at least eight characters.</p></section>");
 
   html += F("<button type=\"submit\">Save settings</button></form>"
+            "<section><h2>Startup artwork</h2>"
+            "<p class=\"hint\">Upload a 320x240 JPEG no larger than 200 KB. "
+            "The image is validated before it replaces the active file.</p>"
+            "<form method=\"post\" action=\"/startup/upload\" "
+            "enctype=\"multipart/form-data\">"
+            "<input type=\"hidden\" name=\"csrf\" value=\"");
+  html += portalCsrfToken;
+  html += F("\"><input name=\"startup_image\" type=\"file\" "
+            "accept=\"image/jpeg\" required>"
+            "<button type=\"submit\">Upload startup image</button></form>"
+            "</section>"
             "<form method=\"post\" action=\"/restart\" style=\"margin-top:14px\">"
             "<input type=\"hidden\" name=\"csrf\" value=\"");
   html += portalCsrfToken;
@@ -1413,8 +1747,10 @@ bool savePortalSettings(int& savedBrightness) {
   const String ssid = settingsServer.arg("wifi_ssid");
   const String wifiPasswordInput = settingsServer.arg("wifi_password");
   const String portalPasswordInput = settingsServer.arg("portal_password");
+  String timezone = settingsServer.arg("posix_timezone");
   host.trim();
   apiPath.trim();
+  timezone.trim();
 
   constexpr const char* timeFormats[] = {"12h", "24h"};
   constexpr const char* dateFormats[] = {
@@ -1436,6 +1772,7 @@ bool savePortalSettings(int& savedBrightness) {
           3) ||
       !validChoice(settingsServer.arg("time_format"), timeFormats, 2) ||
       !validChoice(settingsServer.arg("date_format"), dateFormats, 4) ||
+      !validPosixTimezone(timezone) ||
       !validChoice(
           settingsServer.arg("temperature_unit"),
           temperatureUnits,
@@ -1463,6 +1800,7 @@ bool savePortalSettings(int& savedBrightness) {
   config["location"]["search"] = locationSearch;
   config["locale"]["time_format"] = settingsServer.arg("time_format");
   config["locale"]["date_format"] = settingsServer.arg("date_format");
+  config["locale"]["posix_timezone"] = timezone;
   config["weather"]["temperature_unit"] =
       settingsServer.arg("temperature_unit");
   config["weather"]["wind_speed_unit"] = settingsServer.arg("wind_unit");
@@ -1616,6 +1954,8 @@ void handlePortalSave() {
   }
 
   loadConfiguration();
+  clockConfigured = false;
+  clockSyncLogged = false;
   setBacklight(savedBrightness);
   Serial.println("[PORTAL] Settings saved");
 
@@ -1934,6 +2274,135 @@ void handleFileUploadComplete() {
   settingsServer.send(303, "text/plain", "Uploaded.");
 }
 
+bool installStartupImage(String& error) {
+  constexpr const char* stagePath = "/dashboard/startup.portal-new.jpg";
+  constexpr const char* livePath = "/dashboard/startup.jpg";
+  constexpr const char* backupPath = "/dashboard/startup.portal-backup.jpg";
+  File image = SD.open(stagePath, FILE_READ);
+  uint16_t width = 0;
+  uint16_t height = 0;
+  const bool valid =
+      image && image.size() <= 200U * 1024U &&
+      jpegDimensions(image, width, height) &&
+      width == kScreenWidth && height == kScreenHeight;
+  image.close();
+  if (!valid) {
+    SD.remove(stagePath);
+    error =
+        "Startup artwork must be a 320x240 baseline JPEG no larger than 200 KB.";
+    return false;
+  }
+
+  SD.remove(backupPath);
+  const bool hadLiveImage = SD.exists(livePath);
+  if (hadLiveImage && !SD.rename(livePath, backupPath)) {
+    SD.remove(stagePath);
+    error = "Could not preserve the current startup image.";
+    return false;
+  }
+  if (!SD.rename(stagePath, livePath)) {
+    if (hadLiveImage) {
+      SD.rename(backupPath, livePath);
+    }
+    error = "Could not install the startup image.";
+    return false;
+  }
+  return true;
+}
+
+void handleStartupUploadData() {
+  constexpr const char* stagePath = "/dashboard/startup.portal-new.jpg";
+  HTTPUpload& upload = settingsServer.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    portalUploadAccepted = false;
+    portalUploadError = "";
+    portalUploadTarget = stagePath;
+    if (portalUploadFile) {
+      portalUploadFile.close();
+    }
+    if (portalUploadHasStorageLock && sdMutex != nullptr) {
+      xSemaphoreGive(sdMutex);
+      portalUploadHasStorageLock = false;
+    }
+    if (!settingsServer.authenticate("admin", portalPassword.c_str()) ||
+        settingsServer.arg("csrf") != portalCsrfToken) {
+      portalUploadError = "Authentication or form token failed.";
+      return;
+    }
+    if (sdMutex != nullptr &&
+        xSemaphoreTake(sdMutex, pdMS_TO_TICKS(10000)) != pdTRUE) {
+      portalUploadError = "The SD card is busy. Try again.";
+      return;
+    }
+    portalUploadHasStorageLock = sdMutex != nullptr;
+    SD.remove(stagePath);
+    portalUploadFile = SD.open(stagePath, FILE_WRITE);
+    if (!portalUploadFile) {
+      portalUploadError = "Could not create the staged startup image.";
+      if (portalUploadHasStorageLock) {
+        xSemaphoreGive(sdMutex);
+        portalUploadHasStorageLock = false;
+      }
+      return;
+    }
+    portalUploadAccepted = true;
+  } else if (upload.status == UPLOAD_FILE_WRITE && portalUploadAccepted) {
+    constexpr size_t maximumBytes = 200U * 1024U;
+    if (upload.totalSize + upload.currentSize > maximumBytes ||
+        portalUploadFile.write(upload.buf, upload.currentSize) !=
+            upload.currentSize) {
+      portalUploadError = "The image exceeded 200 KB or the SD write failed.";
+      portalUploadAccepted = false;
+      portalUploadFile.close();
+      SD.remove(stagePath);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (portalUploadFile) {
+      portalUploadFile.close();
+    }
+    if (portalUploadAccepted &&
+        !installStartupImage(portalUploadError)) {
+      portalUploadAccepted = false;
+    }
+    if (portalUploadHasStorageLock) {
+      xSemaphoreGive(sdMutex);
+      portalUploadHasStorageLock = false;
+    }
+  } else if (upload.status == UPLOAD_FILE_ABORTED) {
+    if (portalUploadFile) {
+      portalUploadFile.close();
+    }
+    SD.remove(stagePath);
+    portalUploadAccepted = false;
+    portalUploadError = "Upload was aborted.";
+    if (portalUploadHasStorageLock) {
+      xSemaphoreGive(sdMutex);
+      portalUploadHasStorageLock = false;
+    }
+  }
+}
+
+void handleStartupUploadComplete() {
+  if (!requirePortalAuthentication()) {
+    return;
+  }
+  if (settingsServer.arg("csrf") != portalCsrfToken) {
+    settingsServer.send(403, "text/plain", "Invalid form token.");
+    return;
+  }
+  if (!portalUploadAccepted || !portalUploadError.isEmpty()) {
+    settingsServer.send(
+        400,
+        "text/plain",
+        portalUploadError.isEmpty()
+            ? "Startup image upload failed."
+            : portalUploadError);
+    return;
+  }
+  settingsServer.sendHeader("Location", "/?startup=1");
+  settingsServer.send(303, "text/plain", "Startup image updated.");
+}
+
 void handleFileDelete() {
   if (!requirePortalAuthentication()) {
     return;
@@ -2051,7 +2520,14 @@ void configurePortalRoutes() {
     return;
   }
 
-  settingsServer.on("/", HTTP_GET, handlePortalRoot);
+  settingsServer.on("/", HTTP_GET, []() {
+    if (setupMode) {
+      handleSetupRoot();
+    } else {
+      handlePortalRoot();
+    }
+  });
+  settingsServer.on("/setup/save", HTTP_POST, handleSetupSave);
   settingsServer.on("/save", HTTP_POST, handlePortalSave);
   settingsServer.on("/restart", HTTP_POST, handlePortalRestart);
   settingsServer.on("/files", HTTP_GET, handleFileManager);
@@ -2060,6 +2536,11 @@ void configurePortalRoutes() {
       HTTP_POST,
       handleFileUploadComplete,
       handleFileUploadData);
+  settingsServer.on(
+      "/startup/upload",
+      HTTP_POST,
+      handleStartupUploadComplete,
+      handleStartupUploadData);
   settingsServer.on("/files/delete", HTTP_POST, handleFileDelete);
   settingsServer.on("/files/mkdir", HTTP_POST, handleDirectoryCreate);
   settingsServer.on("/files/download", HTTP_GET, handleFileDownload);
@@ -2072,23 +2553,91 @@ void configurePortalRoutes() {
             ",\"sd\":" + (sdReady ? "true" : "false") + "}");
   });
   settingsServer.onNotFound([]() {
-    settingsServer.send(404, "text/plain", "Not found");
+    if (setupMode) {
+      settingsServer.sendHeader(
+          "Location",
+          "http://" + WiFi.softAPIP().toString() + "/");
+      settingsServer.send(302, "text/plain", "Open the setup page.");
+    } else {
+      settingsServer.send(404, "text/plain", "Not found");
+    }
   });
   portalRoutesConfigured = true;
 }
 
+void startSetupAccessPoint() {
+  if (setupAccessPointStarted) {
+    return;
+  }
+  WiFi.mode(wifiStarted ? WIFI_AP_STA : WIFI_AP);
+  WiFi.softAPConfig(
+      IPAddress(192, 168, 4, 1),
+      IPAddress(192, 168, 4, 1),
+      IPAddress(255, 255, 255, 0));
+  if (!WiFi.softAP(
+          kSetupAccessPointSsid,
+          kSetupAccessPointPassword,
+          1,
+          0,
+          2)) {
+    Serial.println("[SETUP] Could not start setup access point");
+    return;
+  }
+  setupMode = true;
+  setupAccessPointStarted = true;
+  setupDnsServer.start(53, "*", WiFi.softAPIP());
+  configurePortalRoutes();
+  if (!portalStarted) {
+    settingsServer.begin();
+    portalStarted = true;
+  }
+  Serial.printf(
+      "[SETUP] Join %s and open http://%s/\n",
+      kSetupAccessPointSsid,
+      WiFi.softAPIP().toString().c_str());
+}
+
+void stopSetupAccessPoint() {
+  if (!setupAccessPointStarted) {
+    return;
+  }
+  setupDnsServer.stop();
+  WiFi.softAPdisconnect(false);
+  setupAccessPointStarted = false;
+  setupMode = false;
+  Serial.println("[SETUP] Setup access point stopped");
+}
+
+void startClockWhenReady() {
+  if (clockConfigured || WiFi.status() != WL_CONNECTED) {
+    return;
+  }
+  configTzTime(
+      posixTimezone.c_str(),
+      "pool.ntp.org",
+      "time.google.com",
+      "time.cloudflare.com");
+  clockConfigured = true;
+  Serial.printf("[TIME] SNTP started with timezone %s\n", posixTimezone.c_str());
+}
+
 void startPortalWhenReady() {
-  if (portalStarted || WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED) {
     return;
   }
 
+  stopSetupAccessPoint();
   configurePortalRoutes();
-  settingsServer.begin();
-  MDNS.begin("desk-dashboard");
-  portalStarted = true;
-  Serial.printf(
-      "[PORTAL] http://%s/ or http://desk-dashboard.local/\n",
-      WiFi.localIP().toString().c_str());
+  if (!portalStarted) {
+    settingsServer.begin();
+    portalStarted = true;
+  }
+  if (!mdnsStarted && MDNS.begin("desk-dashboard")) {
+    mdnsStarted = true;
+    Serial.printf(
+        "[PORTAL] http://%s/ or http://desk-dashboard.local/\n",
+        WiFi.localIP().toString().c_str());
+  }
 }
 
 void styleScreen(lv_obj_t* screen) {
@@ -2100,13 +2649,37 @@ void styleScreen(lv_obj_t* screen) {
 }
 
 void updateStatusBar() {
-  if (statusLabel == nullptr) {
+  if (wifiStatusLabel == nullptr || sdStatusLabel == nullptr ||
+      clockStatusLabel == nullptr) {
     return;
   }
 
-  const char* sdState = sdReady ? "SD ready" : "No SD";
-  String wifiState = WiFi.status() == WL_CONNECTED ? "Wi-Fi online" : "Wi-Fi offline";
-  lv_label_set_text_fmt(statusLabel, "%s  |  %s", wifiState.c_str(), sdState);
+  const bool wifiConnected = WiFi.status() == WL_CONNECTED;
+  lv_obj_set_style_bg_color(
+      wifiStatusLabel,
+      lv_color_hex(wifiConnected ? 0x166534 : 0x991B1B),
+      0);
+  lv_obj_set_style_bg_color(
+      sdStatusLabel,
+      lv_color_hex(sdReady ? 0x166534 : 0x991B1B),
+      0);
+
+  char clockText[6] = "--:--";
+  const time_t now = time(nullptr);
+  if (now > 1700000000) {
+    struct tm localTime = {};
+    localtime_r(&now, &localTime);
+    if (timeFormat == "12h") {
+      strftime(clockText, sizeof(clockText), "%I:%M", &localTime);
+    } else {
+      strftime(clockText, sizeof(clockText), "%H:%M", &localTime);
+    }
+    if (!clockSyncLogged) {
+      Serial.printf("[TIME] Clock synchronized at %s\n", clockText);
+      clockSyncLogged = true;
+    }
+  }
+  lv_label_set_text(clockStatusLabel, clockText);
 }
 
 void addStatusBar(lv_obj_t* parent) {
@@ -2120,12 +2693,36 @@ void addStatusBar(lv_obj_t* parent) {
   lv_obj_t* title = lv_label_create(bar);
   lv_label_set_text(title, currentPage.c_str());
   lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_set_width(title, 174);
+  lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
   lv_obj_align(title, LV_ALIGN_LEFT_MID, 8, 0);
 
-  statusLabel = lv_label_create(bar);
-  lv_obj_set_style_text_font(statusLabel, &lv_font_montserrat_12, 0);
-  lv_obj_set_style_text_color(statusLabel, lv_color_hex(0x94A3B8), 0);
-  lv_obj_align(statusLabel, LV_ALIGN_RIGHT_MID, -8, 0);
+  wifiStatusLabel = lv_label_create(bar);
+  lv_label_set_text(wifiStatusLabel, "WiFi");
+  lv_obj_set_style_text_font(wifiStatusLabel, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(wifiStatusLabel, lv_color_white(), 0);
+  lv_obj_set_style_bg_opa(wifiStatusLabel, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(wifiStatusLabel, 4, 0);
+  lv_obj_set_style_pad_hor(wifiStatusLabel, 4, 0);
+  lv_obj_set_style_pad_ver(wifiStatusLabel, 2, 0);
+  lv_obj_align(wifiStatusLabel, LV_ALIGN_RIGHT_MID, -77, 0);
+
+  sdStatusLabel = lv_label_create(bar);
+  lv_label_set_text(sdStatusLabel, "SD");
+  lv_obj_set_style_text_font(sdStatusLabel, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(sdStatusLabel, lv_color_white(), 0);
+  lv_obj_set_style_bg_opa(sdStatusLabel, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(sdStatusLabel, 4, 0);
+  lv_obj_set_style_pad_hor(sdStatusLabel, 4, 0);
+  lv_obj_set_style_pad_ver(sdStatusLabel, 2, 0);
+  lv_obj_align(sdStatusLabel, LV_ALIGN_RIGHT_MID, -49, 0);
+
+  clockStatusLabel = lv_label_create(bar);
+  lv_obj_set_width(clockStatusLabel, 42);
+  lv_obj_set_style_text_font(clockStatusLabel, &lv_font_montserrat_12, 0);
+  lv_obj_set_style_text_color(clockStatusLabel, lv_color_hex(0xE2E8F0), 0);
+  lv_obj_set_style_text_align(clockStatusLabel, LV_TEXT_ALIGN_RIGHT, 0);
+  lv_obj_align(clockStatusLabel, LV_ALIGN_RIGHT_MID, -5, 0);
   updateStatusBar();
 }
 
@@ -3719,14 +4316,9 @@ void showStaticCalendar() {
   styleScreen(screen);
   addStatusBar(screen);
 
-  int32_t utcOffsetSeconds = 0;
-  const WeatherData weather = liveDataWeatherSnapshot();
-  if (weather.state == LiveDataState::ready) {
-    utcOffsetSeconds = weather.utcOffsetSeconds;
-  }
-  const time_t localNow = time(nullptr) + utcOffsetSeconds;
+  const time_t localNow = time(nullptr);
   struct tm date = {};
-  gmtime_r(&localNow, &date);
+  localtime_r(&localNow, &date);
 
   if (localNow < 1700000000) {
     lv_obj_t* message = lv_label_create(screen);
@@ -4168,6 +4760,58 @@ bool createIconIfMissing(const DefaultIconAsset& asset) {
   return true;
 }
 
+void recoverPortalTransaction() {
+  constexpr const char* markerPath = "/dashboard/portal.transaction";
+  if (!SD.exists(markerPath)) {
+    return;
+  }
+
+  File marker = SD.open(markerPath, FILE_READ);
+  char flags[2] = {};
+  const bool valid =
+      marker &&
+      marker.read(reinterpret_cast<uint8_t*>(flags), 2) == 2 &&
+      (flags[0] == '0' || flags[0] == '1') &&
+      (flags[1] == '0' || flags[1] == '1');
+  marker.close();
+
+  constexpr const char* livePaths[] = {
+      "/dashboard/config.json",
+      "/dashboard/connections.json",
+  };
+  constexpr const char* stagedPaths[] = {
+      "/dashboard/config.portal-new.json",
+      "/dashboard/connections.portal-new.json",
+  };
+  constexpr const char* backupPaths[] = {
+      "/dashboard/config.portal-backup.json",
+      "/dashboard/connections.portal-backup.json",
+  };
+
+  if (!valid) {
+    for (const char* stagedPath : stagedPaths) {
+      SD.remove(stagedPath);
+    }
+    SD.remove(markerPath);
+    Serial.println("[SD] Discarded an incomplete transaction marker");
+    return;
+  }
+
+  for (size_t index = 0; index < 2; ++index) {
+    const bool hadLiveFile = flags[index] == '1';
+    if (hadLiveFile && SD.exists(backupPaths[index])) {
+      SD.remove(livePaths[index]);
+      SD.rename(backupPaths[index], livePaths[index]);
+    } else if (!hadLiveFile) {
+      SD.remove(livePaths[index]);
+      SD.remove(backupPaths[index]);
+    }
+    SD.remove(stagedPaths[index]);
+  }
+  SD.remove(markerPath);
+  Serial.println("[SD] Rolled back an interrupted portal save");
+}
+
 void recoverPortalFile(
     const char* livePath,
     const char* stagedPath,
@@ -4222,6 +4866,7 @@ void ensureSdScaffold() {
     return;
   }
 
+  recoverPortalTransaction();
   recoverPortalFile(
       "/dashboard/config.json",
       "/dashboard/config.portal-new.json",
@@ -4285,22 +4930,39 @@ void initialiseDisplay() {
   lv_indev_drv_register(&inputDriver);
 }
 
+bool drawStartupFile(const char* path) {
+  File image = SD.open(path, FILE_READ);
+  uint16_t width = 0;
+  uint16_t height = 0;
+  const bool valid =
+      image && image.size() <= 200U * 1024U &&
+      jpegDimensions(image, width, height) &&
+      width == kScreenWidth && height == kScreenHeight;
+  image.close();
+  return valid &&
+         display.drawJpgFile(
+             SD,
+             path,
+             0,
+             0,
+             kScreenWidth,
+             kScreenHeight);
+}
+
 void showStartupScreen() {
   bool drawn = false;
   constexpr const char* customPath = "/dashboard/startup.jpg";
+  constexpr const char* backupPath =
+      "/dashboard/startup.portal-backup.jpg";
   if (sdReady && SD.exists(customPath)) {
-    File image = SD.open(customPath, FILE_READ);
-    if (image && image.size() <= 200U * 1024U) {
-      image.close();
-      drawn = display.drawJpgFile(
-          SD,
-          customPath,
-          0,
-          0,
-          kScreenWidth,
-          kScreenHeight);
-    } else {
-      image.close();
+    drawn = drawStartupFile(customPath);
+  }
+  if (drawn && SD.exists(backupPath)) {
+    SD.remove(backupPath);
+  } else if (!drawn && SD.exists(backupPath)) {
+    SD.remove(customPath);
+    if (SD.rename(backupPath, customPath)) {
+      drawn = drawStartupFile(customPath);
     }
   }
   if (!drawn) {
@@ -4385,7 +5047,16 @@ void loop() {
       showStaticCalendar();
     }
   }
+  if (WiFi.status() != WL_CONNECTED &&
+      !setupAccessPointStarted &&
+      !wifiStarted && setupProvisioningAllowed) {
+    startSetupAccessPoint();
+  }
   startPortalWhenReady();
+  startClockWhenReady();
+  if (setupAccessPointStarted) {
+    setupDnsServer.processNextRequest();
+  }
   if (portalStarted) {
     settingsServer.handleClient();
   }

@@ -22,18 +22,13 @@ interface could add drag-and-drop or move-left/move-right controls.
 
 ## Personalized startup screen
 
-The standard startup artwork and SD-hosted `/dashboard/startup.jpg` override
-are complete. Remaining work:
-
-- Add a portal upload and preview control dedicated to startup artwork
-- Add configurable startup text
-- Allow the display duration to be configured
-- Validate image dimensions before replacing the active file
+The standard artwork, SD override, validated portal upload, and dimension check
+are complete. Configurable startup text and display duration remain possible
+future additions.
 
 ## Longer-term ideas
 
 - Configurable CA certificates for local HTTPS services
 - Export and import of sanitized configuration
 - Optional LVGL simulator for automated UI screenshots
-- Signed release binaries and checksum publication
 - Accessibility review for color contrast and touch-target sizing

@@ -37,3 +37,6 @@ before sharing serial captures.
 Describe the user-visible change, hardware tested, configuration migration, and
 screens affected. Include photographs for visible UI changes when possible.
 Never include real credentials or private service addresses.
+
+Tagged builds follow the process in [RELEASES.md](RELEASES.md). Keep the SBOM
+and checked-in dependency pins synchronized when changing build inputs.

@@ -7,7 +7,8 @@
   },
   "locale": {
     "time_format": "24h",
-    "date_format": "yyyy-dd-mm"
+    "date_format": "yyyy-dd-mm",
+    "posix_timezone": "GMT0BST,M3.5.0/1,M10.5.0"
   },
   "location": {
     "method": "search",

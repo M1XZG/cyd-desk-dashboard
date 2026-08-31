@@ -57,6 +57,13 @@ python3 tools/build_icons.py
 The mockup is 320x240, matching the physical landscape resolution. It is a
 layout guide rather than a final theme.
 
+## Device photographs
+
+The photographs under `docs/images/*-screen.jpg` were supplied by the
+repository owner from the tested physical dashboard. Repository copies are
+resized and stripped of EXIF and GPS metadata. Private service names,
+addresses, and locations are removed where they would otherwise appear.
+
 ## Board reference images
 
 `docs/images/board-front.jpg`, `docs/images/board-back.jpg`, and

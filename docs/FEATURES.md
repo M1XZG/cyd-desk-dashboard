@@ -13,9 +13,10 @@ back to a built-in copy or text initial if the file cannot be read.
 
 The dashboard opens with a 320x240 project graphic for at least 1.2 seconds.
 It reads `/dashboard/startup.jpg` from the SD card when that file is present
-and no larger than 200 KB. An embedded copy of the standard artwork is used
-when the SD file cannot be displayed. A small **Starting...** label occupies
-the reserved lower strip.
+and is a valid 320x240 baseline JPEG no larger than 200 KB. The browser portal
+provides a dedicated validated upload. An embedded copy of the standard
+artwork is used when the SD file cannot be displayed. A small **Starting...**
+label occupies the reserved lower strip.
 
 ![CYD Desk Dashboard startup screen](images/startup-screen.jpg)
 
@@ -34,8 +35,7 @@ active data sources are credited on the Weather page. The page shows:
 - Sunrise and sunset
 - Approximate moon phase and illumination
 
-Temperature, wind, and pressure units are configurable. Weather also supplies
-the local UTC offset used by the Calendar page.
+Temperature, wind, and pressure units are configurable.
 
 ![Weather conditions and astronomy screen](images/weather-screen.jpg)
 
@@ -54,11 +54,13 @@ time, calculates distance and bearing, sorts by distance, and keeps the nearest
 configured aircraft. The radar is north-up. Symbols show heading and use color
 to distinguish altitude or vertical movement.
 
+![Nearby-aircraft radar screen](images/flights-screen.jpg)
+
 Tapping an aircraft opens a detail page with the fields supplied by the
 provider: callsign, registration, aircraft type, route, altitude, speed,
 heading, distance, bearing, and climb or descent rate.
 
-![Nearby-aircraft radar screen](images/flights-screen.jpg)
+![Aircraft detail screen](images/aircraft-screen.jpg)
 
 ## Bambuddy
 
@@ -113,11 +115,19 @@ kept in the browser portal rather than an on-screen keyboard.
 
 ![On-device settings menu](images/settings-screen.jpg)
 
+Every page has a compact top bar. WiFi and SD badges use green for available
+and red for unavailable. The local time appears at the right after SNTP
+synchronizes.
+
 ## Browser portal
 
 The portal edits ordinary settings and write-only credentials. It also includes
-an SD-card file manager. Sections collapse to keep the page manageable on
-phones. Saves are validated, staged, and redirected back to the main page.
+an SD-card file manager and a dedicated startup-artwork upload. Sections
+collapse to keep the page manageable on phones. Saves are validated, staged,
+and redirected back to the main page.
+
+On first boot, the device opens the password-protected
+`desktopdashboard-setup` network for initial configuration.
 
 ![Browser settings portal with collapsed sections](images/web-portal-overview.png)
 

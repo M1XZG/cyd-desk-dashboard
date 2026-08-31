@@ -14,24 +14,24 @@ display, touch controller, backlight, or SD slot differently.
 
 ## Prepare the SD card
 
-Copy the repository's `sd-card/dashboard` folder to the root of the card.
-Rename:
+Copy the repository's `sd-card/dashboard` folder to the root of the card. You
+can rename the example files for manual configuration:
 
 ```text
 dashboard/config.example.json      -> dashboard/config.json
 dashboard/connections.example.json -> dashboard/connections.json
 ```
 
-Edit `connections.json` with your Wi-Fi details. The SD card is not encrypted,
-so use read-only service keys and keep the card physically secure.
+Manual editing is optional. On a new installation, the dashboard starts its
+protected setup network when live Wi-Fi credentials are absent.
 
-The firmware can boot without either live JSON file. It creates versioned
-examples when they are missing, but Wi-Fi and the portal remain unavailable
-until credentials are supplied.
+The firmware can boot without either live JSON file and creates them after
+browser setup. The SD card is not encrypted, so use read-only service keys and
+keep the card physically secure.
 
 `dashboard/startup.jpg` is optional. The supplied file matches the embedded
-default. Replace it with another 320x240 RGB JPEG under 200 KB to customize the
-startup artwork without rebuilding the firmware.
+default. Replace it with another 320x240 baseline RGB JPEG under 200 KB to
+customize the startup artwork without rebuilding the firmware.
 
 ## Build
 
@@ -81,6 +81,28 @@ If the display is upside down, open **Settings > Display** and select
 **Rotate 180**. Rotation changes require recalibration because the touch axes
 change with the screen orientation.
 
+## Connect the dashboard to Wi-Fi
+
+When Wi-Fi has not been configured, connect a phone or computer to:
+
+| Field | Value |
+| --- | --- |
+| Network | `desktopdashboard-setup` |
+| Password | `deskdashboard` |
+| Setup address | `http://192.168.4.1/` |
+
+Most devices open the setup page automatically. Enter the destination Wi-Fi
+details, create a portal password of at least eight characters, and confirm the
+POSIX timezone. The dashboard saves both JSON files and restarts.
+
+The default timezone is the United Kingdom rule
+`GMT0BST,M3.5.0/1,M10.5.0`. Replace it during setup when the dashboard will be
+used elsewhere.
+
+If configured Wi-Fi later becomes unavailable, correct `connections.json` on
+the SD card. The public setup password is deliberately limited to first-run
+devices and cannot overwrite an existing configuration.
+
 ## Open the browser portal
 
 After Wi-Fi connects, open the IP shown under **Settings > System** or try:
@@ -92,6 +114,9 @@ http://desk-dashboard.local/
 The username is `admin`. If no portal password exists in `connections.json`,
 the device generates one and shows it on the physical System page. Change it
 through the portal after signing in.
+
+SNTP starts as soon as Wi-Fi connects. The top bar shows the local time and
+uses green or red WiFi and SD badges to show their current state.
 
 ## Configure live services
 

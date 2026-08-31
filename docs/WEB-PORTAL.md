@@ -1,5 +1,13 @@
 # Browser portal
 
+## First-run setup
+
+An unconfigured dashboard creates the `desktopdashboard-setup` Wi-Fi network
+with password `deskdashboard`. Open `http://192.168.4.1/` and enter the target
+Wi-Fi credentials, a new portal password, and the POSIX timezone. The setup
+network is available only while Wi-Fi has not been configured and stops when
+station mode connects.
+
 ## Access
 
 The portal starts after Wi-Fi connects. Open the IP shown under
@@ -28,8 +36,8 @@ Changing rotation schedules a restart and requires touch recalibration.
 ### Location and units
 
 Enter a town or postcode and choose 12/24-hour time, date format, temperature,
-wind, pressure, and precipitation units. Location changes are resolved during
-the next weather update.
+wind, pressure, precipitation units, and a POSIX timezone. The timezone drives
+the top-bar clock and Calendar independently of Weather.
 
 ![Location and format settings section](images/portal-location-formats.png)
 
@@ -70,6 +78,13 @@ passwords must contain at least eight characters.
 ![Wi-Fi network settings](images/portal-wifi.png)
 
 ![Portal password settings](images/portal-security.png)
+
+### Startup artwork
+
+Upload a 320x240 baseline JPEG no larger than 200 KB. Progressive JPEGs are not
+supported. The firmware stages the file, checks its JPEG dimensions and size,
+then atomically replaces
+`/dashboard/startup.jpg`. Restart the dashboard to see the new image.
 
 ## Save behavior
 

@@ -1,0 +1,221 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "CYD Desk Dashboard firmware SBOM",
+  "documentNamespace": "https://github.com/M1XZG/cyd-desk-dashboard/sbom/spdx-2.3/e57c1153511faa6090fb805b8de529aaa621494fff5dde4b722cd8cd407bca4d",
+  "creationInfo": {
+    "created": "2026-08-31T00:00:00Z",
+    "creators": [
+      "Tool: tools/generate_sbom.py"
+    ],
+    "licenseListVersion": "3.26"
+  },
+  "documentDescribes": [
+    "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION"
+  ],
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "name": "CYD Desk Dashboard firmware",
+      "versionInfo": "NOASSERTION",
+      "downloadLocation": "https://github.com/M1XZG/cyd-desk-dashboard",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "FIRMWARE"
+    },
+    {
+      "SPDXID": "SPDXRef-Arduino-ESP32-2.0.17",
+      "name": "Arduino ESP32",
+      "versionInfo": "2.0.17",
+      "downloadLocation": "https://github.com/espressif/arduino-esp32/releases/tag/2.0.17",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "FRAMEWORK",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/espressif/arduino-esp32@2.0.17"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-ArduinoJson-7.4.3",
+      "name": "ArduinoJson",
+      "versionInfo": "7.4.3",
+      "downloadLocation": "https://github.com/bblanchon/ArduinoJson/releases/tag/v7.4.3",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/bblanchon/ArduinoJson@v7.4.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-LovyanGFX-1.2.28",
+      "name": "LovyanGFX",
+      "versionInfo": "1.2.28",
+      "downloadLocation": "https://github.com/lovyan03/LovyanGFX/releases/tag/1.2.28",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/lovyan03/LovyanGFX@1.2.28"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-lvgl-8.4.0",
+      "name": "lvgl",
+      "versionInfo": "8.4.0",
+      "downloadLocation": "https://github.com/lvgl/lvgl/releases/tag/v8.4.0",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/lvgl/lvgl@v8.4.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Pillow-12.2.0",
+      "name": "Pillow",
+      "versionInfo": "12.2.0",
+      "downloadLocation": "https://pypi.org/project/Pillow/12.2.0/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/pillow@12.2.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-platformio-6.1.19",
+      "name": "platformio",
+      "versionInfo": "6.1.19",
+      "downloadLocation": "https://pypi.org/project/platformio/6.1.19/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "APPLICATION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/platformio@6.1.19"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-PlatformIO-espressif32-platform-6.12.0",
+      "name": "PlatformIO espressif32 platform",
+      "versionInfo": "6.12.0",
+      "downloadLocation": "https://registry.platformio.org/platforms/platformio/espressif32/version/6.12.0",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "FRAMEWORK",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:generic/platformio-espressif32@6.12.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-pyserial-3.5",
+      "name": "pyserial",
+      "versionInfo": "3.5",
+      "downloadLocation": "https://pypi.org/project/pyserial/3.5/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:pypi/pyserial@3.5"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Arduino-ESP32-2.0.17"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-ArduinoJson-7.4.3"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-LovyanGFX-1.2.28"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-lvgl-8.4.0"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Pillow-12.2.0"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-platformio-6.1.19"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-PlatformIO-espressif32-platform-6.12.0"
+    },
+    {
+      "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-pyserial-3.5"
+    }
+  ]
+}

@@ -12,6 +12,7 @@ camera metadata, and edited where necessary to hide local names and addresses.
 | `docs/images/home-screen.jpg` | Home tile grid |
 | `docs/images/weather-screen.jpg` | Weather |
 | `docs/images/flights-screen.jpg` | Flights radar |
+| `docs/images/aircraft-screen.jpg` | Aircraft details |
 | `docs/images/bambuddy-screen.jpg` | Bambuddy |
 | `docs/images/systems-screen.jpg` | Systems |
 | `docs/images/calendar-screen.jpg` | Calendar |
@@ -23,12 +24,6 @@ The browser portal also has focused captures for Display, Location and formats,
 Flights, Bambuddy, Systems monitoring, Home tiles, Wi-Fi, portal security, and
 the SD-card file manager. These are embedded beside their matching sections in
 `docs/WEB-PORTAL.md`.
-
-## Still needed
-
-| Placeholder | Screen |
-| --- | --- |
-| `docs/images/aircraft-screen.svg` | Aircraft details |
 
 Future photographs should be landscape, framed closely around the device, and
 free of private IP addresses, Wi-Fi names, API keys, printer names, and personal

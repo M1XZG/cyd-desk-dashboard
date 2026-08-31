@@ -9,7 +9,8 @@
 | LovyanGFX | ILI9341 display and XPT2046 touch |
 | LVGL | Touch interface and widgets |
 | ArduinoJson | Bounded JSON parsing and configuration |
-| ESP32 WebServer | Settings portal and SD file manager |
+| ESP32 WebServer | Setup, settings, artwork upload, and SD file manager |
+| ESP32 DNSServer | Captive first-run setup |
 | FreeRTOS | Serialized background network worker |
 
 ## Runtime model
@@ -46,8 +47,14 @@ overrides, and the generated bootstrap portal password.
 ## Networking
 
 Public HTTPS providers use embedded root certificates and require a synchronized
-clock before certificate validation. Wi-Fi sleep is disabled to improve
-request reliability. Service failures are isolated to their own snapshots.
+clock before certificate validation. SNTP starts independently as soon as the
+station connects, using the configured POSIX timezone. Wi-Fi sleep is disabled
+to improve request reliability. Service failures are isolated to their own
+snapshots.
+
+When credentials are absent, the ESP32 starts a protected access point and
+captive setup page. Successful setup writes both live JSON documents and
+restarts. The access point is disabled as soon as station mode connects.
 
 Systems HTTP checks deliberately use plain HTTP for small LAN health endpoints.
 Bambuddy should also be treated as a trusted-LAN service unless a future build
@@ -57,8 +64,9 @@ adds configurable CA certificates.
 
 The portal uses Basic Auth and a per-boot form token. Credentials are write-only
 in HTML forms. Configuration writes are staged, validated, backed up, and
-recovered at boot. File-manager paths are normalized and recursive deletion is
-not supported.
+recovered at boot. Startup artwork is size and dimension checked before atomic
+replacement. File-manager paths are normalized and recursive deletion is not
+supported.
 
 ## Source layout
 

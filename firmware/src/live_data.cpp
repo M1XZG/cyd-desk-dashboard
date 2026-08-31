@@ -5,6 +5,7 @@
 #include <SD.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <esp_sntp.h>
 #include <math.h>
 #include <time.h>
 
@@ -193,7 +194,9 @@ bool ensureClock(char* error, size_t errorSize) {
     return true;
   }
 
-  configTime(0, 0, "pool.ntp.org", "time.google.com");
+  if (!esp_sntp_enabled()) {
+    configTime(0, 0, "pool.ntp.org", "time.google.com");
+  }
   const uint32_t deadline = millis() + 8000;
   while (time(nullptr) <= 1700000000 &&
          static_cast<int32_t>(millis() - deadline) < 0) {

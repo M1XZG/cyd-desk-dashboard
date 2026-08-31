@@ -8,8 +8,9 @@ __pycache__/
 # Live device configuration and credentials
 sd-card/dashboard/config.json
 sd-card/dashboard/connections.json
-sd-card/dashboard/*.portal-stage.json
-sd-card/dashboard/*.portal-backup.json
+sd-card/dashboard/*.portal-new.*
+sd-card/dashboard/*.portal-backup.*
+sd-card/dashboard/portal.transaction
 sd-card/dashboard/calendar.tmp
 
 # Research checkouts and temporary captures

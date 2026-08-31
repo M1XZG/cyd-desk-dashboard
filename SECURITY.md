@@ -27,6 +27,15 @@ wireless network.
 The microSD card is also unencrypted. Anyone with physical access can read
 Wi-Fi credentials and service keys from `connections.json`.
 
+First-run setup uses the `desktopdashboard-setup` access point
+with the documented password `deskdashboard`. This shared password protects
+against accidental connections, not a determined nearby attacker. Setup mode
+is available only before Wi-Fi credentials have been configured and stops
+after station mode connects. It cannot replace an existing Wi-Fi or portal
+password; if partially configured credentials already exist, edit or remove
+them from the SD card first. Complete setup promptly and use it only in a
+trusted physical location.
+
 Use a dedicated portal password and least-privileged, read-only API keys. Do not
 store administrator credentials, printer-control keys, account refresh tokens,
 or passwords reused elsewhere.
@@ -39,5 +48,6 @@ or passwords reused elsewhere.
 - Configuration saves are validated and staged
 - SD file-manager paths reject traversal
 - Uploads do not silently overwrite files
+- Startup artwork is size and dimension checked before replacement
 - Recursive deletion is unavailable
 - Public HTTPS providers use embedded CA roots

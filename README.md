@@ -20,9 +20,11 @@ artwork stored on a microSD card.
 - Read-only Bambuddy printer monitoring
 - Device, internet, HTTP endpoint, and TCP port health checks
 - Sunday-first monthly calendar with previous and next month navigation
+- Password-protected first-run Wi-Fi setup access point
 - Authenticated browser settings portal and SD-card file manager
 - Replaceable SD-card icons with built-in fallbacks
-- Branded startup screen with an SD-card JPEG override
+- Validated startup-artwork upload with an embedded fallback
+- Local clock with compact WiFi and SD health badges on every page
 - Saved touch calibration, orientation, brightness, and tile visibility
 - Serialized network and SD work to keep the interface responsive
 
@@ -51,6 +53,7 @@ artwork stored on a microSD card.
 | [Asset sources](ASSET-SOURCES.md) | Artwork provenance and third-party licences |
 | [Contributing](CONTRIBUTING.md) | Development workflow and pull-request expectations |
 | [Security](SECURITY.md) | Credential handling, LAN exposure, and reporting |
+| [Releases](RELEASES.md) | Tagged binaries, checksums, SBOM, and flashing guidance |
 
 ## Current status
 

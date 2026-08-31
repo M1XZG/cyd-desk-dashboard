@@ -26,16 +26,18 @@ Supported portal values include:
 | --- | --- |
 | Time format | `12h`, `24h` |
 | Date format | `yyyy-dd-mm`, `dd-mm-yyyy`, `mm-dd-yyyy`, `yyyy-mm-dd` |
+| POSIX timezone | A POSIX TZ rule, up to 80 printable characters |
 | Temperature | `celsius`, `fahrenheit` |
 | Wind | `kmh`, `mph` |
 | Pressure | `hpa`, `inhg` |
 | Precipitation | `mm`, `in` |
 
-`location.search` accepts a place name or postcode. Weather geocoding supplies
-the coordinates and local time offset.
+`location.search` accepts a place name or postcode. `locale.posix_timezone`
+sets the device clock independently of Weather and includes daylight-saving
+rules when the supplied POSIX string defines them.
 
-Time, date, and precipitation preferences are preserved in the configuration
-but do not yet change the current on-device pages.
+The time preference controls the top-bar clock. Date and precipitation
+preferences are preserved but do not yet change the current pages.
 
 ### Flights
 
@@ -112,7 +114,9 @@ The complete distributable examples are
 
 ## Startup artwork
 
-The startup file must be a 320x240 RGB JPEG no larger than 200 KB. Keep the
+The startup file must be a 320x240 baseline RGB JPEG no larger than 200 KB.
+Progressive JPEG encoding is not supported by the display decoder. Keep the
 bottom 32 pixels visually quiet because the firmware draws its startup status
-there. If the file is missing, oversized, or cannot be decoded, the embedded
-standard artwork is shown.
+there. The browser portal validates the JPEG dimensions and size before
+replacing the active file. If the file is missing, invalid, oversized, or
+cannot be decoded, the embedded standard artwork is shown.
