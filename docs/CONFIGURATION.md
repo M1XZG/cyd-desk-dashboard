@@ -27,12 +27,15 @@ Supported portal values include:
 | Time format | `12h`, `24h` |
 | Date format | `yyyy-dd-mm`, `dd-mm-yyyy`, `mm-dd-yyyy`, `yyyy-mm-dd` |
 | Temperature | `celsius`, `fahrenheit` |
-| Wind | `kmh`, `mph`, `ms`, `kn` |
+| Wind | `kmh`, `mph` |
 | Pressure | `hpa`, `inhg` |
-| Precipitation | `mm`, `inch` |
+| Precipitation | `mm`, `in` |
 
 `location.search` accepts a place name or postcode. Weather geocoding supplies
 the coordinates and local time offset.
+
+Time, date, and precipitation preferences are preserved in the configuration
+but do not yet change the current on-device pages.
 
 ### Flights
 
@@ -46,8 +49,9 @@ the coordinates and local time offset.
 
 ### Bambuddy
 
-Configure `protocol`, `host`, `port`, `api_base_path`, and `printer_id`.
-The default API path is `/api/v1`.
+Configure `host`, `port`, `api_base_path`, and `printer_id`. The current
+firmware supports HTTP on a trusted LAN; HTTPS is reserved for a future release
+with configurable certificate authorities. The default API path is `/api/v1`.
 
 ### Systems monitors
 
@@ -81,8 +85,7 @@ remains visible.
   },
   "services": {
     "bambuddy_readonly_api_key": "",
-    "flights_api_token": "",
-    "systems_readonly_token": ""
+    "flights_api_token": ""
   },
   "device": {
     "settings_portal_password": ""
@@ -102,6 +105,10 @@ consistent pair after interrupted power or a failed rename.
 
 Live `config.json` and `connections.json` are ignored by Git. Do not force-add
 them to a repository.
+
+The complete distributable examples are
+[`config.example.json`](../sd-card/dashboard/config.example.json) and
+[`connections.example.json`](../sd-card/dashboard/connections.example.json).
 
 ## Startup artwork
 

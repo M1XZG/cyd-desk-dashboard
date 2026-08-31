@@ -4,7 +4,7 @@
 
 | Item | Tested configuration |
 | --- | --- |
-| Board | [ESP32-2432S028-class CYD](https://link.amazon/B0e12EwEV) |
+| Board | [ESP32-2432S028-class CYD](https://link.amazon/B0e12EwEV) (affiliate link) |
 | ESP32 | ESP32-D0WD-V3 |
 | Display | 2.8-inch ILI9341, 320x240 |
 | Touch | XPT2046 resistive controller |

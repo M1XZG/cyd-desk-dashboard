@@ -42,7 +42,7 @@ aircraft, minimum altitude, refresh interval, and optional provider token.
 
 ### Bambuddy
 
-Set protocol, host, port, API base path, printer ID, and read-only key. Blank
+Set the HTTP host, port, API base path, printer ID, and read-only key. Blank
 credential fields preserve the current value. The existing key is never sent
 back to the browser.
 
@@ -64,18 +64,12 @@ be hidden.
 
 ### Wi-Fi and portal security
 
-Set the Wi-Fi SSID and password, then change the portal password. Any non-empty
-portal password is accepted. Passwords shorter than four characters produce a
-warning because the dashboard is intended for local desk use.
+Set the Wi-Fi SSID and password, then change the portal password. New portal
+passwords must contain at least eight characters.
 
 ![Wi-Fi network settings](images/portal-wifi.png)
 
 ![Portal password settings](images/portal-security.png)
-
-Additional service credentials are entered in write-only fields. Leaving a
-field blank preserves its current value.
-
-![Additional service token settings](images/portal-service-tokens.png)
 
 ## Save behavior
 

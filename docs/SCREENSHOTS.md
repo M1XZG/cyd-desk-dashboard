@@ -21,8 +21,8 @@ camera metadata, and edited where necessary to hide local names and addresses.
 
 The browser portal also has focused captures for Display, Location and formats,
 Flights, Bambuddy, Systems monitoring, Home tiles, Wi-Fi, portal security, and
-additional service tokens. These are embedded beside their matching sections
-in `docs/WEB-PORTAL.md`.
+the SD-card file manager. These are embedded beside their matching sections in
+`docs/WEB-PORTAL.md`.
 
 ## Still needed
 

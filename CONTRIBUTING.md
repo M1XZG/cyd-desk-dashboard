@@ -5,6 +5,8 @@
 Install Python 3 and PlatformIO Core, then build from `firmware`:
 
 ```bash
+python -m pip install -r requirements-tools.txt
+cd firmware
 pio run -e cyd
 ```
 
@@ -27,7 +29,8 @@ and prefer streaming or fixed-size result structures.
 Build the `cyd` environment and test affected screens on physical hardware.
 Check serial output for resets, watchdog warnings, shrinking heap, and low stack
 headroom. Portal changes should be tested on both a desktop and a phone-sized
-browser.
+browser. Redact private IP addresses, Wi-Fi names, locations, and service names
+before sharing serial captures.
 
 ## Pull requests
 

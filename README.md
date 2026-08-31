@@ -1,19 +1,20 @@
 # CYD Desk Dashboard
 
-A standalone touchscreen information dashboard for the
+A self-contained touchscreen information dashboard for the
 ESP32-2432S028, commonly sold as the Cheap Yellow Display or CYD.
 
-The firmware runs directly on the ESP32. It shows weather, nearby aircraft,
-Bambuddy printer status, network and service health, and a local monthly
-calendar. Configuration is managed through an authenticated browser portal,
-with settings and replaceable artwork stored on a microSD card.
+The firmware runs directly on the ESP32 without a companion process for its
+public weather and flight data. Optional integrations such as Bambuddy still
+require their service to be reachable on the local network. Configuration is
+managed through an authenticated browser portal, with settings and replaceable
+artwork stored on a microSD card.
 
 ![CYD Desk Dashboard home screen](docs/images/home-screen.jpg)
 
 ## Highlights
 
 - 320x240 landscape touch interface with a six-tile home screen
-- Live weather, sunrise, sunset, and moon information from Open-Meteo
+- Live weather from Open-Meteo, with MET Norway and sunrise-sunset.org fallbacks
 - Standalone nearby-aircraft radar using airplanes.live, adsb.lol, or the
   official Flightradar24 API
 - Read-only Bambuddy printer monitoring
@@ -45,8 +46,9 @@ with settings and replaceable artwork stored on a microSD card.
 | [Configuration](docs/CONFIGURATION.md) | JSON files, accepted values, secrets, and examples |
 | [Architecture](docs/ARCHITECTURE.md) | Tasks, memory, rendering, networking, persistence, and safety |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common display, touch, Wi-Fi, SD, and service problems |
-| [Screenshots](docs/SCREENSHOTS.md) | Screen index and replacement instructions for placeholders |
+| [Screenshots](docs/SCREENSHOTS.md) | Device and browser interface image index |
 | [Roadmap](docs/ROADMAP.md) | Planned OTA, tile ordering, and startup personalization |
+| [Asset sources](ASSET-SOURCES.md) | Artwork provenance and third-party licences |
 | [Contributing](CONTRIBUTING.md) | Development workflow and pull-request expectations |
 | [Security](SECURITY.md) | Credential handling, LAN exposure, and reporting |
 
@@ -64,4 +66,5 @@ The current build metadata is recorded in
 
 The firmware and project documentation are released under the
 [MIT License](LICENSE). The bundled Lucide icons retain their
-[ISC license](assets/icons/LUCIDE-LICENSE.txt).
+[ISC license](assets/icons/LUCIDE-LICENSE.txt). Third-party board reference
+images are included with permission and are not covered by the MIT licence.

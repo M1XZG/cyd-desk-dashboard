@@ -60,26 +60,11 @@ constexpr const char kConfigExample[] = R"json({
   "display": {
     "rotation": 1,
     "brightness_percent": 85,
-    "panel_variant": "auto",
-    "theme": "midnight",
-    "accent_colour": "sky",
-    "auto_dim": {
-      "enabled": true,
-      "start": "22:00",
-      "end": "07:00",
-      "brightness_percent": 15,
-      "screen_off": false
-    },
-    "idle": {
-      "dim_after_seconds": 120,
-      "dim_brightness_percent": 30,
-      "sleep_after_seconds": 600
-    }
+    "panel_variant": "auto"
   },
   "locale": {
     "time_format": "24h",
-    "date_format": "yyyy-dd-mm",
-    "first_day_of_week": "monday"
+    "date_format": "yyyy-dd-mm"
   },
   "location": {
     "method": "search",
@@ -135,17 +120,8 @@ constexpr const char kConfigExample[] = R"json({
     "flights": 60,
     "bambuddy_visible": 30,
     "bambuddy_background": 120,
-    "systems": 60,
-    "calendar": 300
+    "systems": 60
   },
-  "tiles": [
-    "weather",
-    "flights",
-    "bambuddy",
-    "systems",
-    "calendar",
-    "settings"
-  ],
   "tile_visibility": {
     "weather": true,
     "flights": true,
@@ -164,8 +140,7 @@ constexpr const char kConnectionsExample[] = R"json({
   },
   "services": {
     "bambuddy_readonly_api_key": "bb_READ_STATUS_KEY_ONLY",
-    "flights_api_token": "",
-    "systems_readonly_token": ""
+    "flights_api_token": ""
   },
   "device": {
     "settings_portal_password": ""
@@ -294,7 +269,7 @@ void setBacklight(uint8_t percent) {
   const uint8_t duty = map(brightnessPercent, 0, 100, 0, 255);
   ledcWrite(kBacklightChannel, duty);
 
-  if (brightnessLabel != nullptr) {
+  if (currentPage == "Display" && brightnessLabel != nullptr) {
     lv_label_set_text_fmt(brightnessLabel, "%u%%", brightnessPercent);
   }
 }
@@ -421,6 +396,7 @@ void loadConfiguration() {
   if (!sdReady) {
     return;
   }
+  xSemaphoreTake(sdMutex, portMAX_DELAY);
 
   wifiSsid = "";
   wifiPassword = "";
@@ -476,11 +452,17 @@ void loadConfiguration() {
         1000UL;
     bambuddyVisibleRefreshMilliseconds =
         static_cast<uint32_t>(
-            config["refresh_seconds"]["bambuddy_visible"] | 30) *
+            constrain(
+                config["refresh_seconds"]["bambuddy_visible"] | 30,
+                15,
+                3600)) *
         1000UL;
     bambuddyBackgroundRefreshMilliseconds =
         static_cast<uint32_t>(
-            config["refresh_seconds"]["bambuddy_background"] | 120) *
+            constrain(
+                config["refresh_seconds"]["bambuddy_background"] | 120,
+                15,
+                86400)) *
         1000UL;
     systemsRefreshMilliseconds =
         static_cast<uint32_t>(
@@ -596,6 +578,7 @@ void loadConfiguration() {
         liveSettings.systemMonitors[index].enabled;
   }
   liveDataConfigure(liveSettings);
+  xSemaphoreGive(sdMutex);
 }
 
 void startWifi() {
@@ -652,7 +635,7 @@ void initialisePortalCredentials() {
   }
   preferences.end();
   portalUsesBootstrapPassword = true;
-  Serial.printf("[PORTAL] Bootstrap password: %s\n", portalPassword.c_str());
+  Serial.println("[PORTAL] Bootstrap password available on Settings > System");
 }
 
 bool requirePortalAuthentication() {
@@ -1138,11 +1121,7 @@ void handlePortalRoot() {
       "</style></head><body><main><h1>Desk Dashboard</h1>"
       "<p>Local settings portal. Blank credential fields preserve their current values.</p>");
   const String saveResult = settingsServer.arg("saved");
-  if (saveResult == "weak-password") {
-    html += F(
-        "<p class=\"warning\"><strong>Settings saved.</strong> The new portal "
-        "password is very short. Four or more characters are recommended.</p>");
-  } else if (saveResult == "1") {
+  if (saveResult == "1") {
     html += F(
         "<p class=\"notice\"><strong>Settings saved.</strong> The live JSON "
         "files were validated and replaced safely.</p>");
@@ -1220,7 +1199,6 @@ void handlePortalRoot() {
   html += F("<section><h2>Bambuddy</h2><div class=\"grid\">"
             "<label>Protocol<select name=\"bambuddy_protocol\">");
   appendPortalOption(html, "http", "HTTP", protocol);
-  appendPortalOption(html, "https", "HTTPS", protocol);
   html += F("</select></label><label>Hostname or IP<input name=\"bambuddy_host\" maxlength=\"128\" value=\"");
   html += htmlEscape(host);
   html += F("\"></label><label>Port<input name=\"bambuddy_port\" type=\"number\" min=\"1\" max=\"65535\" value=\"");
@@ -1308,10 +1286,7 @@ void handlePortalRoot() {
             "</div><p class=\"hint\">Wi-Fi changes take effect after restart.</p></section>"
             "<section><h2>Portal security</h2><div class=\"grid\">"
             "<label>New portal password<input name=\"portal_password\" type=\"password\" maxlength=\"64\" autocomplete=\"new-password\" placeholder=\"Leave blank to keep current\"></label></div>"
-            "<p class=\"hint\">Portal username: admin. Four or more characters are recommended; shorter passwords are accepted with a warning.</p></section>");
-
-  html += F("<section><h2>Additional service tokens</h2><div class=\"grid\">"
-            "<label>Systems read-only token<input name=\"systems_token\" type=\"password\" maxlength=\"256\" autocomplete=\"new-password\" placeholder=\"Leave blank to keep current\"></label></div></section>");
+            "<p class=\"hint\">Portal username: admin. New passwords must contain at least eight characters.</p></section>");
 
   html += F("<button type=\"submit\">Save settings</button></form>"
             "<form method=\"post\" action=\"/restart\" style=\"margin-top:14px\">"
@@ -1356,7 +1331,7 @@ void updateSecretField(
   }
 }
 
-bool savePortalSettings(int& savedBrightness, bool& weakPassword) {
+bool savePortalSettings(int& savedBrightness) {
   JsonDocument config;
   JsonDocument connections;
   String error;
@@ -1448,13 +1423,13 @@ bool savePortalSettings(int& savedBrightness, bool& weakPassword) {
   constexpr const char* windUnits[] = {"kmh", "mph"};
   constexpr const char* pressureUnits[] = {"hpa", "inhg"};
   constexpr const char* precipitationUnits[] = {"mm", "in"};
-  constexpr const char* protocols[] = {"http", "https"};
+  constexpr const char* protocols[] = {"http"};
   constexpr const char* aircraftProviders[] = {
       "airplanes.live", "adsb.lol", "flightradar24"};
 
   if (locationSearch.length() > 100 || !validPortalHost(host) ||
       apiPath.length() > 64 || !apiPath.startsWith("/") ||
-      !validChoice(protocol, protocols, 2) ||
+      !validChoice(protocol, protocols, 1) ||
       !validChoice(
           settingsServer.arg("flights_provider"),
           aircraftProviders,
@@ -1475,7 +1450,8 @@ bool savePortalSettings(int& savedBrightness, bool& weakPassword) {
     return false;
   }
   if (ssid.length() > 32 || wifiPasswordInput.length() > 64 ||
-      portalPasswordInput.length() > 64) {
+      portalPasswordInput.length() > 64 ||
+      (!portalPasswordInput.isEmpty() && portalPasswordInput.length() < 8)) {
     settingsServer.send(400, "text/plain", "Wi-Fi or portal credentials are invalid.");
     return false;
   }
@@ -1578,7 +1554,7 @@ bool savePortalSettings(int& savedBrightness, bool& weakPassword) {
     updateSecretField(connections, "flights_api_token", "flights_token");
   }
   connections["services"].remove("flights_proxy_token");
-  updateSecretField(connections, "systems_readonly_token", "systems_token");
+  connections["services"].remove("systems_readonly_token");
   connections["services"].remove("calendar_ics_url");
   connections["services"].remove("calendar_readonly_token");
   config["services"]["calendar"].remove("url");
@@ -1622,8 +1598,6 @@ bool savePortalSettings(int& savedBrightness, bool& weakPassword) {
   }
 
   savedBrightness = brightness;
-  weakPassword =
-      !portalPasswordInput.isEmpty() && portalPasswordInput.length() < 4;
   return true;
 }
 
@@ -1637,8 +1611,7 @@ void handlePortalSave() {
   }
 
   int savedBrightness = 0;
-  bool weakPassword = false;
-  if (!savePortalSettings(savedBrightness, weakPassword)) {
+  if (!savePortalSettings(savedBrightness)) {
     return;
   }
 
@@ -1646,9 +1619,7 @@ void handlePortalSave() {
   setBacklight(savedBrightness);
   Serial.println("[PORTAL] Settings saved");
 
-  settingsServer.sendHeader(
-      "Location",
-      weakPassword ? "/?saved=weak-password" : "/?saved=1");
+  settingsServer.sendHeader("Location", "/?saved=1");
   settingsServer.send(303, "text/plain", "Settings saved.");
 }
 
@@ -1762,9 +1733,18 @@ void handleFileManager() {
       "<section><h2>Contents</h2><table><thead><tr><th>Name</th><th>Size</th>"
       "<th>Action</th></tr></thead><tbody>");
 
+  constexpr size_t kMaximumDisplayedEntries = 40;
   bool hasEntries = false;
+  bool listingTruncated = false;
+  size_t entryCount = 0;
   File entry = directory.openNextFile();
   while (entry) {
+    if (entryCount >= kMaximumDisplayedEntries) {
+      listingTruncated = true;
+      entry.close();
+      break;
+    }
+    ++entryCount;
     hasEntries = true;
     String entryPath = entry.name();
     if (!entryPath.startsWith("/")) {
@@ -1809,6 +1789,10 @@ void handleFileManager() {
 
   if (!hasEntries) {
     html += F("<tr><td colspan=\"3\" class=\"muted\">This directory is empty.</td></tr>");
+  } else if (listingTruncated) {
+    html += F(
+        "<tr><td colspan=\"3\" class=\"muted\">Only the first 40 entries are "
+        "shown. Open a subdirectory to narrow the listing.</td></tr>");
   }
   html += F("</tbody></table></section><p class=\"muted\">Deleting "
             "config.json or connections.json can prevent services from loading "
@@ -2239,6 +2223,7 @@ void rotateDisplayEvent(lv_event_t* event) {
 
 void showDisplaySettings() {
   currentPage = "Display";
+  brightnessLabel = nullptr;
   lv_obj_t* screen = lv_scr_act();
   lv_obj_clean(screen);
   styleScreen(screen);
@@ -4149,6 +4134,7 @@ bool createExampleIfMissing(const char* path, const char* contents) {
         path,
         static_cast<unsigned>(written),
         static_cast<unsigned>(expected));
+    SD.remove(path);
     return false;
   }
 
@@ -4343,6 +4329,12 @@ void setup() {
   Serial.println("[BOOT] ESP32 Dashboard first-run firmware");
 
   sdMutex = xSemaphoreCreateMutex();
+  if (sdMutex == nullptr) {
+    Serial.println("[BOOT] Could not create SD mutex");
+    while (true) {
+      delay(1000);
+    }
+  }
   liveDataSetStorageMutex(sdMutex);
   initialiseTouch();
   initialiseStorage();

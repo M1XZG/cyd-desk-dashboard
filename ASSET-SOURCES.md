@@ -61,7 +61,8 @@ layout guide rather than a final theme.
 
 `docs/images/board-front.jpg`, `docs/images/board-back.jpg`, and
 `docs/images/board-pinout.jpg` came from the
-[linked ESP32-2432S028 Amazon listing](https://link.amazon/B0e12EwEV). The
-repository owner supplied the source files and confirmed permission to
-redistribute them. Repository copies have been resized and stripped of embedded
-camera or source metadata.
+[linked ESP32-2432S028 Amazon listing](https://link.amazon/B0e12EwEV), which is
+an affiliate link. The repository owner supplied the source files and confirmed
+permission to redistribute them. These images are not covered by the
+repository's MIT licence. Repository copies have been resized and stripped of
+embedded camera or source metadata.

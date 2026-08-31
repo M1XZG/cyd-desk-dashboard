@@ -1,4 +1,4 @@
-ESP32 dashboard static Calendar firmware
+ESP32 dashboard pre-public review firmware
 Build date: 2026-08-31
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Application:
-firmware.bin size: 1,587,424 bytes
-firmware.bin SHA-256: 18200260dd9dc3742f36589b7241d4b6165a6864a57966996d9fc1ac3731beca
+firmware.bin size: 1,589,936 bytes
+firmware.bin SHA-256: 3424d3b89901388997c7068cb05e0125b8e5c6f4b8f42aaa13ba8bab6f51b45c
 
 Systems:
 Device health, internet connectivity, and four configurable monitors
@@ -32,6 +32,11 @@ sunrise-sunset.org supplies local solar and lunar data in fallback mode
 Weather content scrolls vertically with persistent position guidance
 adsb.lol TLS validation uses the provider's ISRG Root X1 certificate chain
 The portal restart page returns to the dashboard after 15 seconds
+Portal password changes require at least eight characters
+The bootstrap portal password is no longer printed over serial
+Configuration reloads and live-data downloads coordinate SD-card access
+Weather and aircraft downloads enforce bounded response sizes
+The SD file manager limits each directory listing to 40 entries
 Generic startup artwork is embedded with an SD-card JPEG override
 Portal sections are collapsible and the HTML buffer is reserved atomically
 Core-0 network worker stack: 16,384 bytes

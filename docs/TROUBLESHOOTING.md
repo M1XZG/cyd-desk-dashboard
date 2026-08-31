@@ -8,9 +8,11 @@ LovyanGFX panel definition.
 
 ## Touch is offset or reversed
 
-Re-run calibration after changing rotation. If calibration data is invalid,
-clear the `touch` NVS namespace or hold the touch IRQ active during boot to
-force calibration.
+Re-run calibration after changing rotation. To force calibration, press and
+hold the touchscreen while powering on the device, then release it when the
+calibration targets appear. If that does not work, erase the device NVS with
+`pio run -e cyd -t erase` and reflash; this also removes saved rotation and the
+generated portal password.
 
 ## Device returns to the home screen
 
@@ -86,4 +88,6 @@ py firmware/tools/capture_serial.py --port COM4 --duration 25
 ```
 
 Serial output includes SD state, Wi-Fi state, heap, stack headroom, page name,
-provider status, and portal diagnostics.
+provider status, and portal diagnostics. Redact private IP addresses, Wi-Fi
+names, locations, and service names before sharing a capture. Current firmware
+does not print the bootstrap portal password.

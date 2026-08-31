@@ -67,8 +67,9 @@ pio run -e cyd -t upload --upload-port COM4
 
 Advanced users updating an existing installation can write only the
 application partition at `0x10000`. This preserves NVS values such as touch
-calibration and the generated portal password. Confirm that the partition
-layout matches `min_spiffs.csv` before using this method.
+calibration and the generated portal password. Only use this method for a
+device already flashed with this project's `cyd` environment, which selects
+PlatformIO's `min_spiffs.csv` partition layout in `firmware/platformio.ini`.
 
 ## First boot
 

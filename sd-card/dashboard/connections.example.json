@@ -6,8 +6,7 @@
   },
   "services": {
     "bambuddy_readonly_api_key": "bb_READ_STATUS_KEY_ONLY",
-    "flights_api_token": "",
-    "systems_readonly_token": ""
+    "flights_api_token": ""
   },
   "device": {
     "settings_portal_password": ""

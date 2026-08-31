@@ -207,6 +207,76 @@ bool ensureClock(char* error, size_t errorSize) {
   return true;
 }
 
+class LimitedWriteStream : public Stream {
+ public:
+  LimitedWriteStream(File& file, size_t limit)
+      : file_(file), limit_(limit) {}
+
+  size_t write(uint8_t value) override {
+    return write(&value, 1);
+  }
+
+  size_t write(const uint8_t* buffer, size_t size) override {
+    const size_t available =
+        written_ < limit_ ? limit_ - written_ : 0;
+    const size_t accepted = min(size, available);
+    if (accepted < size) {
+      exceeded_ = true;
+    }
+    const size_t count = accepted > 0 ? file_.write(buffer, accepted) : 0;
+    written_ += count;
+    return count;
+  }
+
+  int available() override { return 0; }
+  int read() override { return -1; }
+  int peek() override { return -1; }
+  void flush() override { file_.flush(); }
+  size_t written() const { return written_; }
+  bool exceeded() const { return exceeded_; }
+
+ private:
+  File& file_;
+  size_t limit_;
+  size_t written_ = 0;
+  bool exceeded_ = false;
+};
+
+class LimitedReadStream : public Stream {
+ public:
+  LimitedReadStream(Stream& source, size_t limit)
+      : source_(source), remaining_(limit) {}
+
+  int available() override {
+    return min(source_.available(), static_cast<int>(remaining_));
+  }
+
+  int read() override {
+    if (remaining_ == 0) {
+      return -1;
+    }
+    const int value = source_.read();
+    if (value >= 0) {
+      --remaining_;
+      ++read_;
+    }
+    return value;
+  }
+
+  int peek() override {
+    return remaining_ > 0 ? source_.peek() : -1;
+  }
+
+  void flush() override { source_.flush(); }
+  size_t write(uint8_t) override { return 0; }
+  size_t readCount() const { return read_; }
+
+ private:
+  Stream& source_;
+  size_t remaining_;
+  size_t read_ = 0;
+};
+
 bool secureGetJson(
     const String& url,
     const char* rootCertificate,
@@ -244,9 +314,14 @@ bool secureGetJson(
     return false;
   }
 
+  LimitedReadStream response(request.getStream(), 20001);
   const DeserializationError jsonError =
-      deserializeJson(document, request.getStream());
+      deserializeJson(document, response);
   request.end();
+  if (response.readCount() > 20000) {
+    strlcpy(error, "Weather response was too large", errorSize);
+    return false;
+  }
   if (jsonError) {
     snprintf(error, errorSize, "Weather JSON: %s", jsonError.c_str());
     return false;
@@ -545,6 +620,13 @@ bool fetchMetNoWeather(
   filter["properties"]["timeseries"][0]["data"]["next_6_hours"]["summary"]
         ["symbol_code"] = true;
 
+  const int expectedBytes = request.getSize();
+  if (expectedBytes > 200000) {
+    copyText(result.error, "Backup weather response was too large");
+    request.end();
+    return false;
+  }
+
   constexpr const char* temporaryPath =
       "/dashboard/weather-response.tmp";
   const bool storageLocked =
@@ -568,13 +650,23 @@ bool fetchMetNoWeather(
     return false;
   }
 
-  const int expectedBytes = request.getSize();
-  const int bytesWritten = request.writeToStream(&responseFile);
+  LimitedWriteStream limitedOutput(responseFile, 200000);
+  const int transferResult = request.writeToStream(&limitedOutput);
+  const size_t bytesWritten = limitedOutput.written();
   responseFile.close();
   request.end();
   client.stop();
-  if (bytesWritten <= 0 ||
-      (expectedBytes > 0 && bytesWritten != expectedBytes)) {
+  if (limitedOutput.exceeded()) {
+    SD.remove(temporaryPath);
+    if (storageMutex != nullptr) {
+      xSemaphoreGive(storageMutex);
+    }
+    copyText(result.error, "Backup weather response was too large");
+    return false;
+  }
+  if (transferResult < 0 || bytesWritten == 0 ||
+      (expectedBytes > 0 &&
+       bytesWritten != static_cast<size_t>(expectedBytes))) {
     SD.remove(temporaryPath);
     if (storageMutex != nullptr) {
       xSemaphoreGive(storageMutex);
@@ -1050,15 +1142,22 @@ void fetchFlights(const LiveDataSettings& settings) {
         } else if (!responseFile) {
           copyText(result.error, "Could not create the aircraft cache");
         } else {
-          const int bytesWritten = request.writeToStream(&responseFile);
+          const int expectedBytes = request.getSize();
+          LimitedWriteStream limitedOutput(responseFile, 300000);
+          const int transferResult = request.writeToStream(&limitedOutput);
+          const size_t bytesWritten = limitedOutput.written();
           responseFile.close();
           request.end();
           client.stop();
           Serial.printf(
-              "[FLIGHTS] Downloaded %d bytes\n",
-              bytesWritten);
-          if (bytesWritten < 0 ||
-              (request.getSize() > 0 && bytesWritten != request.getSize())) {
+              "[FLIGHTS] Downloaded %u bytes\n",
+              static_cast<unsigned>(bytesWritten));
+          if (limitedOutput.exceeded()) {
+            copyText(result.error, "Aircraft response was too large");
+            SD.remove(temporaryPath);
+          } else if (transferResult < 0 || bytesWritten == 0 ||
+              (expectedBytes > 0 &&
+               bytesWritten != static_cast<size_t>(expectedBytes))) {
             copyText(result.error, "Aircraft download was incomplete");
             SD.remove(temporaryPath);
           } else {
@@ -1846,41 +1945,6 @@ bool parseCalendarStream(
   return true;
 }
 
-class LimitedWriteStream : public Stream {
- public:
-  LimitedWriteStream(File& file, size_t limit)
-      : file_(file), limit_(limit) {}
-
-  size_t write(uint8_t value) override {
-    return write(&value, 1);
-  }
-
-  size_t write(const uint8_t* buffer, size_t size) override {
-    const size_t available =
-        written_ < limit_ ? limit_ - written_ : 0;
-    const size_t accepted = min(size, available);
-    if (accepted < size) {
-      exceeded_ = true;
-    }
-    const size_t count = accepted > 0 ? file_.write(buffer, accepted) : 0;
-    written_ += count;
-    return count;
-  }
-
-  int available() override { return 0; }
-  int read() override { return -1; }
-  int peek() override { return -1; }
-  void flush() override { file_.flush(); }
-  size_t written() const { return written_; }
-  bool exceeded() const { return exceeded_; }
-
- private:
-  File& file_;
-  size_t limit_;
-  size_t written_ = 0;
-  bool exceeded_ = false;
-};
-
 bool readCalendarRequest(
     HTTPClient& request,
     int32_t utcOffsetSeconds,
@@ -2195,8 +2259,16 @@ bool queueJob(NetworkJob job) {
 
 void liveDataBegin() {
   dataMutex = xSemaphoreCreateMutex();
+  if (dataMutex == nullptr) {
+    Serial.println("[LIVE] Could not create data mutex");
+    return;
+  }
   jobQueue = xQueueCreate(4, sizeof(NetworkJob));
-  xTaskCreatePinnedToCore(
+  if (jobQueue == nullptr) {
+    Serial.println("[LIVE] Could not create worker queue");
+    return;
+  }
+  const BaseType_t taskCreated = xTaskCreatePinnedToCore(
       networkWorker,
       "live-data",
       16384,
@@ -2204,6 +2276,11 @@ void liveDataBegin() {
       1,
       nullptr,
       0);
+  if (taskCreated != pdPASS) {
+    Serial.println("[LIVE] Could not start network worker");
+    vQueueDelete(jobQueue);
+    jobQueue = nullptr;
+  }
 }
 
 void liveDataSetStorageMutex(SemaphoreHandle_t mutex) {
@@ -2236,6 +2313,9 @@ bool liveDataRequestSystems() {
 }
 
 WeatherData liveDataWeatherSnapshot() {
+  if (dataMutex == nullptr) {
+    return weatherData;
+  }
   WeatherData snapshot;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   snapshot = weatherData;
@@ -2244,6 +2324,9 @@ WeatherData liveDataWeatherSnapshot() {
 }
 
 FlightsData liveDataFlightsSnapshot() {
+  if (dataMutex == nullptr) {
+    return flightsData;
+  }
   FlightsData snapshot;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   snapshot = flightsData;
@@ -2252,6 +2335,9 @@ FlightsData liveDataFlightsSnapshot() {
 }
 
 BambuddyData liveDataBambuddySnapshot() {
+  if (dataMutex == nullptr) {
+    return bambuddyData;
+  }
   BambuddyData snapshot;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   snapshot = bambuddyData;
@@ -2260,6 +2346,9 @@ BambuddyData liveDataBambuddySnapshot() {
 }
 
 SystemsData liveDataSystemsSnapshot() {
+  if (dataMutex == nullptr) {
+    return systemsData;
+  }
   SystemsData snapshot;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   snapshot = systemsData;
