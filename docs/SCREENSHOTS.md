@@ -11,6 +11,7 @@ camera metadata, and edited where necessary to hide local names and addresses.
 | `docs/images/startup-screen.jpg` | Startup artwork |
 | `docs/images/home-screen.jpg` | Home tile grid |
 | `docs/images/weather-screen.jpg` | Weather |
+| `docs/images/weather-details-screen.jpg` | Weather details and provider credit |
 | `docs/images/flights-screen.jpg` | Flights radar |
 | `docs/images/aircraft-screen.jpg` | Aircraft details |
 | `docs/images/aircraft-no-photo-screen.jpg` | Aircraft details without an available photograph |

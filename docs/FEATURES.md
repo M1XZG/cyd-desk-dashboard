@@ -41,6 +41,11 @@ Temperature, wind, and pressure units are configurable.
 
 ![Weather conditions and astronomy screen](images/weather-screen.jpg)
 
+Swipe upward to reveal the provider credit while keeping the detailed
+conditions and astronomy visible.
+
+![Weather details with Open-Meteo provider credit](images/weather-details-screen.jpg)
+
 ## Flights
 
 Flights works without another computer or local receiver. It supports:
