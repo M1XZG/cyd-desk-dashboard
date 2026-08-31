@@ -116,7 +116,9 @@ the device generates one and shows it on the physical System page. Change it
 through the portal after signing in.
 
 SNTP starts as soon as Wi-Fi connects. The top bar shows the local time and
-uses green or red WiFi and SD badges to show their current state.
+uses green or red WiFi and SD badges to show their current state. Four small
+bars show Wi-Fi signal strength. Settings > System shows the channel and RSSI
+reading in dBm.
 
 ## Configure live services
 

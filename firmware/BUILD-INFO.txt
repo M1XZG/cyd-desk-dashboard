@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,615,712 bytes
-firmware.bin SHA-256: 979dc763cf73f610ca673a71761008c27f5fd40e1b1a23e9ac684e6e4ad6a781
+firmware.bin size: 1,616,144 bytes
+firmware.bin SHA-256: f2c0ceb80b9137203ff764d8f22f2ed45ec874b26316d3309ad939fbbe0ad7de
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -40,6 +40,8 @@ The bootstrap portal password is no longer printed over serial
 First-run setup uses the protected desktopdashboard-setup access point
 SNTP starts independently with a configurable POSIX timezone
 The top bar shows local time with compact WiFi and SD state badges
+Four live bars show Wi-Fi signal strength in the top bar
+Settings > System shows the Wi-Fi channel and RSSI at page load
 The portal validates and atomically installs 320x240 startup JPEGs
 Configuration reloads and live-data downloads coordinate SD-card access
 Weather and aircraft downloads enforce bounded response sizes

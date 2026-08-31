@@ -116,8 +116,11 @@ kept in the browser portal rather than an on-screen keyboard.
 ![On-device settings menu](images/settings-screen.jpg)
 
 Every page has a compact top bar. WiFi and SD badges use green for available
-and red for unavailable. The local time appears at the right after SNTP
-synchronizes.
+and red for unavailable. Four ascending bars beside WiFi show the current
+signal level. The local time appears at the right after SNTP synchronizes.
+
+Settings > System records the Wi-Fi channel and RSSI in dBm when the page
+opens, alongside the portal address and device memory.
 
 ## Browser portal
 

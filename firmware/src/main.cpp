@@ -172,6 +172,7 @@ lv_disp_drv_t displayDriver;
 lv_indev_drv_t inputDriver;
 
 lv_obj_t* wifiStatusLabel = nullptr;
+lv_obj_t* wifiSignalBars[4] = {};
 lv_obj_t* sdStatusLabel = nullptr;
 lv_obj_t* clockStatusLabel = nullptr;
 lv_obj_t* brightnessLabel = nullptr;
@@ -2664,6 +2665,26 @@ void updateStatusBar() {
       lv_color_hex(sdReady ? 0x166534 : 0x991B1B),
       0);
 
+  uint8_t signalBars = 0;
+  if (wifiConnected) {
+    const int32_t rssi = WiFi.RSSI();
+    signalBars =
+        rssi >= -55 ? 4 :
+        rssi >= -65 ? 3 :
+        rssi >= -75 ? 2 : 1;
+  }
+  for (size_t index = 0; index < 4; ++index) {
+    if (wifiSignalBars[index] != nullptr) {
+      lv_obj_set_style_bg_color(
+          wifiSignalBars[index],
+          lv_color_hex(
+              index < signalBars
+                  ? 0x22C55E
+                  : (wifiConnected ? 0x334155 : 0x7F1D1D)),
+          0);
+    }
+  }
+
   char clockText[6] = "--:--";
   const time_t now = time(nullptr);
   if (now > 1700000000) {
@@ -2705,7 +2726,20 @@ void addStatusBar(lv_obj_t* parent) {
   lv_obj_set_style_radius(wifiStatusLabel, 4, 0);
   lv_obj_set_style_pad_hor(wifiStatusLabel, 4, 0);
   lv_obj_set_style_pad_ver(wifiStatusLabel, 2, 0);
-  lv_obj_align(wifiStatusLabel, LV_ALIGN_RIGHT_MID, -77, 0);
+  lv_obj_align(wifiStatusLabel, LV_ALIGN_RIGHT_MID, -94, 0);
+
+  for (size_t index = 0; index < 4; ++index) {
+    const int height = 3 + static_cast<int>(index) * 2;
+    wifiSignalBars[index] = lv_obj_create(bar);
+    lv_obj_remove_style_all(wifiSignalBars[index]);
+    lv_obj_set_size(wifiSignalBars[index], 2, height);
+    lv_obj_set_pos(
+        wifiSignalBars[index],
+        230 + static_cast<int>(index) * 3,
+        19 - height);
+    lv_obj_set_style_bg_opa(wifiSignalBars[index], LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(wifiSignalBars[index], 1, 0);
+  }
 
   sdStatusLabel = lv_label_create(bar);
   lv_label_set_text(sdStatusLabel, "SD");
@@ -2954,10 +2988,16 @@ void showSystemSettings() {
 
   lv_obj_t* details = lv_label_create(screen);
   if (WiFi.status() == WL_CONNECTED) {
+    const int32_t wifiChannel = WiFi.channel();
+    const int32_t wifiSignal = WiFi.RSSI();
     lv_label_set_text_fmt(
         details,
-        "Settings portal\nhttp://%s/\nhttp://desk-dashboard.local/\n\nUsername: admin\nPassword: %s\n\nHeap: %u bytes",
+        "Settings portal\nhttp://%s/\ndesk-dashboard.local\n"
+        "WiFi: channel %ld | %ld dBm\n"
+        "Username: admin\nPassword: %s\nHeap: %u bytes",
         WiFi.localIP().toString().c_str(),
+        static_cast<long>(wifiChannel),
+        static_cast<long>(wifiSignal),
         portalUsesBootstrapPassword
             ? portalPassword.c_str()
             : "configured in connections.json",
@@ -2967,7 +3007,7 @@ void showSystemSettings() {
         details,
         "Settings portal unavailable\nWi-Fi is not connected.");
   }
-  lv_obj_set_style_text_font(details, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_font(details, &lv_font_montserrat_12, 0);
   lv_obj_set_pos(details, 12, 40);
 
   addSettingsBackButton(screen);
