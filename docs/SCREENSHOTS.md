@@ -20,6 +20,7 @@ camera metadata, and edited where necessary to hide local names and addresses.
 | `docs/images/web-portal-overview.png` | Browser settings portal |
 | `docs/images/web-portal-firmware.png` | Browser firmware update section |
 | `docs/images/web-file-manager.png` | SD-card file manager |
+| `docs/images/social-preview.png` | GitHub and social-link preview |
 
 The browser portal also has focused captures for Display, Location and formats,
 Flights, Bambuddy, Systems monitoring, Home tiles, Wi-Fi, portal security, and
