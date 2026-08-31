@@ -206,6 +206,8 @@ lv_obj_t* flightsMessageLabel = nullptr;
 lv_obj_t* aircraftPhotoStatusLabel = nullptr;
 lv_obj_t* aircraftPhotoCreditLabel = nullptr;
 bool aircraftPhotoDrawn = false;
+uint8_t aircraftPhotoRetryCount = 0;
+uint32_t aircraftPhotoRetryAt = 0;
 lv_obj_t* bambuddyNameLabel = nullptr;
 lv_obj_t* bambuddyStatusLabel = nullptr;
 lv_obj_t* bambuddySignalLabel = nullptr;
@@ -3907,7 +3909,11 @@ void showAircraftDetail(const AircraftData& aircraft) {
   lv_obj_set_style_text_align(aircraftPhotoStatusLabel, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_text_font(
       aircraftPhotoStatusLabel,
-      &lv_font_montserrat_10,
+      &lv_font_montserrat_12,
+      0);
+  lv_obj_set_style_text_color(
+      aircraftPhotoStatusLabel,
+      lv_color_hex(0xF8FAFC),
       0);
   lv_obj_center(aircraftPhotoStatusLabel);
 
@@ -3960,6 +3966,8 @@ void showAircraftDetail(const AircraftData& aircraft) {
   lv_obj_center(label);
 
   aircraftPhotoDrawn = false;
+  aircraftPhotoRetryCount = 0;
+  aircraftPhotoRetryAt = 0;
   liveDataRequestAircraftPhoto(aircraft.hex);
 }
 
@@ -3979,7 +3987,27 @@ void renderAircraftPhoto() {
     return;
   }
   if (photo.state == LiveDataState::error) {
-    lv_label_set_text(aircraftPhotoStatusLabel, photo.error);
+    if (strcmp(photo.error, "No photo found for this aircraft") != 0 &&
+        aircraftPhotoRetryCount < 1) {
+      if (aircraftPhotoRetryAt == 0) {
+        aircraftPhotoRetryAt = millis() + 1500;
+        lv_label_set_text(
+            aircraftPhotoStatusLabel,
+            "Photo unavailable\nRetrying...");
+      } else if (
+          static_cast<int32_t>(millis() - aircraftPhotoRetryAt) >= 0 &&
+          liveDataRequestAircraftPhoto(selectedAircraft.hex)) {
+        ++aircraftPhotoRetryCount;
+        aircraftPhotoRetryAt = 0;
+        lv_label_set_text(aircraftPhotoStatusLabel, "Retrying photo...");
+      }
+      return;
+    }
+    lv_label_set_text(
+        aircraftPhotoStatusLabel,
+        strcmp(photo.error, "No photo found for this aircraft") == 0
+            ? "No aircraft photo\nfound"
+            : photo.error);
     lv_label_set_text(aircraftPhotoCreditLabel, "Airport-Data.com");
     return;
   }

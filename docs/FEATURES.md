@@ -64,7 +64,8 @@ one public thumbnail from Airport-Data.com by ICAO hex code. When available,
 the photo is downloaded on demand, fitted into a 150x100 frame, and shown with
 the photographer and source credit. The most recent thumbnail replaces the
 prior temporary copy on the SD card. Missing photos leave the flight details
-usable and show a short status message in the image frame.
+usable and show a high-contrast status message in the image frame. Temporary
+lookup or download failures are retried once automatically.
 
 ![Aircraft detail screen](images/aircraft-screen.jpg)
 
