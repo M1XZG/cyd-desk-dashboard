@@ -15,6 +15,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  SOURCE_DATE_EPOCH: "1788134400"
+
 jobs:
   release:
     name: Build and publish

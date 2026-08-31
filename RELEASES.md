@@ -3,7 +3,9 @@
 Tagged versions are published through GitHub Releases. Each release page also
 offers GitHub's automatically generated source archives. Building from source
 uses the pinned PlatformIO platform, Arduino framework, libraries, and Python
-tools recorded in the repository.
+tools recorded in the repository. CI release builds use a fixed
+`SOURCE_DATE_EPOCH` so the application binary can be reproduced from the same
+tag and toolchain.
 
 ## Firmware files
 

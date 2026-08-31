@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SOURCE_DATE_EPOCH: "1788134400"
+
 jobs:
   platformio:
     runs-on: ubuntu-latest
