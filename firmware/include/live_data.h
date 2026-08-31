@@ -123,6 +123,16 @@ struct FlightsData {
   uint32_t updatedAt = 0;
 };
 
+struct AircraftPhotoData {
+  LiveDataState state = LiveDataState::idle;
+  char aircraftHex[9] = {};
+  char photographer[65] = {};
+  char imagePath[49] = {};
+  char sourceLink[129] = {};
+  char error[97] = {};
+  uint32_t updatedAt = 0;
+};
+
 struct SystemMonitorData {
   char name[25] = {};
   char detail[33] = {};
@@ -148,9 +158,11 @@ void liveDataSetNetworkMutex(SemaphoreHandle_t mutex);
 void liveDataConfigure(const LiveDataSettings& settings);
 bool liveDataRequestWeather();
 bool liveDataRequestFlights();
+bool liveDataRequestAircraftPhoto(const char* aircraftHex);
 bool liveDataRequestBambuddy();
 bool liveDataRequestSystems();
 WeatherData liveDataWeatherSnapshot();
 FlightsData liveDataFlightsSnapshot();
+AircraftPhotoData liveDataAircraftPhotoSnapshot();
 BambuddyData liveDataBambuddySnapshot();
 SystemsData liveDataSystemsSnapshot();

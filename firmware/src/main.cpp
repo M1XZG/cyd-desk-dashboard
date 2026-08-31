@@ -180,8 +180,7 @@ SemaphoreHandle_t sdMutex = nullptr;
 SemaphoreHandle_t networkMutex = nullptr;
 
 lv_disp_draw_buf_t drawBuffer;
-lv_color_t bufferOne[kScreenWidth * 10];
-lv_color_t bufferTwo[kScreenWidth * 10];
+lv_color_t bufferOne[kScreenWidth * 5];
 lv_disp_drv_t displayDriver;
 lv_indev_drv_t inputDriver;
 
@@ -204,6 +203,9 @@ lv_obj_t* weatherCreditLabel = nullptr;
 const char* renderedWeatherIconPath = nullptr;
 lv_obj_t* flightsRadar = nullptr;
 lv_obj_t* flightsMessageLabel = nullptr;
+lv_obj_t* aircraftPhotoStatusLabel = nullptr;
+lv_obj_t* aircraftPhotoCreditLabel = nullptr;
+bool aircraftPhotoDrawn = false;
 lv_obj_t* bambuddyNameLabel = nullptr;
 lv_obj_t* bambuddyStatusLabel = nullptr;
 lv_obj_t* bambuddySignalLabel = nullptr;
@@ -3873,35 +3875,167 @@ void showAircraftDetail(const AircraftData& aircraft) {
                           ? "climbing"
                           : (aircraft.verticalRate < -300.0f ? "descending"
                                                             : "level");
-  char details[220];
+  char details[180];
   snprintf(
       details,
       sizeof(details),
-      "Altitude %.0f ft   Speed %.0f kt\nHeading %.0f deg   %s\nDistance %.1f km   Bearing %.0f deg\nRoute %s%s%s",
+      "Altitude  %.0f ft\nSpeed     %.0f kt\nDistance  %.1f km\nBearing   %.0f deg\nStatus    %s\nHeading   %.0f deg",
       aircraft.altitudeFt,
       aircraft.groundSpeedKnots,
-      aircraft.track,
-      aircraft.onGround ? "on ground" : trend,
       aircraft.distanceKm,
       aircraft.bearing,
-      strlen(aircraft.origin) > 0 ? aircraft.origin : "---",
-      strlen(aircraft.origin) > 0 || strlen(aircraft.destination) > 0
-          ? " to "
-          : "",
-      strlen(aircraft.destination) > 0 ? aircraft.destination : "---");
+      aircraft.onGround ? "on ground" : trend,
+      aircraft.track);
   lv_obj_t* detailLabel = lv_label_create(screen);
   lv_label_set_text(detailLabel, details);
-  lv_obj_set_style_text_font(detailLabel, &lv_font_montserrat_14, 0);
-  lv_obj_set_pos(detailLabel, 12, 94);
+  lv_obj_set_style_text_font(detailLabel, &lv_font_montserrat_12, 0);
+  lv_obj_set_pos(detailLabel, 12, 92);
+
+  lv_obj_t* photoFrame = lv_obj_create(screen);
+  lv_obj_set_size(photoFrame, 154, 104);
+  lv_obj_set_pos(photoFrame, 158, 83);
+  lv_obj_set_style_bg_color(photoFrame, lv_color_hex(0x020617), 0);
+  lv_obj_set_style_border_color(photoFrame, lv_color_hex(0x334155), 0);
+  lv_obj_set_style_border_width(photoFrame, 2, 0);
+  lv_obj_set_style_radius(photoFrame, 4, 0);
+  lv_obj_set_style_pad_all(photoFrame, 0, 0);
+  lv_obj_clear_flag(photoFrame, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(photoFrame, LV_OBJ_FLAG_SCROLLABLE);
+  aircraftPhotoStatusLabel = lv_label_create(photoFrame);
+  lv_label_set_text(aircraftPhotoStatusLabel, "Loading aircraft photo...");
+  lv_obj_set_width(aircraftPhotoStatusLabel, 140);
+  lv_obj_set_style_text_align(aircraftPhotoStatusLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(
+      aircraftPhotoStatusLabel,
+      &lv_font_montserrat_10,
+      0);
+  lv_obj_center(aircraftPhotoStatusLabel);
+
+  aircraftPhotoCreditLabel = lv_label_create(screen);
+  lv_label_set_text(aircraftPhotoCreditLabel, "");
+  lv_obj_set_width(aircraftPhotoCreditLabel, 154);
+  lv_label_set_long_mode(
+      aircraftPhotoCreditLabel,
+      LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_align(
+      aircraftPhotoCreditLabel,
+      LV_TEXT_ALIGN_CENTER,
+      0);
+  lv_obj_set_style_text_font(
+      aircraftPhotoCreditLabel,
+      &lv_font_montserrat_10,
+      0);
+  lv_obj_set_style_text_color(
+      aircraftPhotoCreditLabel,
+      lv_color_hex(0x94A3B8),
+      0);
+  lv_obj_set_pos(aircraftPhotoCreditLabel, 158, 190);
+
+  char route[32];
+  if (strlen(aircraft.origin) > 0 || strlen(aircraft.destination) > 0) {
+    snprintf(
+        route,
+        sizeof(route),
+        "%s to %s",
+        strlen(aircraft.origin) > 0 ? aircraft.origin : "---",
+        strlen(aircraft.destination) > 0 ? aircraft.destination : "---");
+  } else {
+    route[0] = '\0';
+  }
+  lv_obj_t* routeLabel = lv_label_create(screen);
+  lv_label_set_text(routeLabel, route);
+  lv_obj_set_width(routeLabel, 154);
+  lv_label_set_long_mode(routeLabel, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_font(routeLabel, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_align(routeLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_pos(routeLabel, 158, 216);
 
   lv_obj_t* back = lv_btn_create(screen);
-  lv_obj_set_size(back, 90, 34);
-  lv_obj_align(back, LV_ALIGN_BOTTOM_LEFT, 8, -8);
+  lv_obj_set_size(back, 76, 28);
+  lv_obj_align(back, LV_ALIGN_BOTTOM_LEFT, 8, -4);
   lv_obj_set_style_bg_color(back, lv_color_hex(0x334155), 0);
   lv_obj_add_event_cb(back, flightsBackEvent, LV_EVENT_CLICKED, nullptr);
   lv_obj_t* label = lv_label_create(back);
   lv_label_set_text(label, "Flights");
   lv_obj_center(label);
+
+  aircraftPhotoDrawn = false;
+  liveDataRequestAircraftPhoto(aircraft.hex);
+}
+
+void renderAircraftPhoto() {
+  if (currentPage != "Aircraft" || aircraftPhotoStatusLabel == nullptr) {
+    return;
+  }
+  const AircraftPhotoData photo = liveDataAircraftPhotoSnapshot();
+  if (strcmp(photo.aircraftHex, selectedAircraft.hex) != 0) {
+    if (photo.state != LiveDataState::loading) {
+      liveDataRequestAircraftPhoto(selectedAircraft.hex);
+    }
+    return;
+  }
+  if (photo.state == LiveDataState::loading ||
+      photo.state == LiveDataState::idle) {
+    return;
+  }
+  if (photo.state == LiveDataState::error) {
+    lv_label_set_text(aircraftPhotoStatusLabel, photo.error);
+    lv_label_set_text(aircraftPhotoCreditLabel, "Airport-Data.com");
+    return;
+  }
+  if (aircraftPhotoDrawn) {
+    return;
+  }
+
+  lv_label_set_text(aircraftPhotoStatusLabel, "");
+  char credit[96];
+  snprintf(
+      credit,
+      sizeof(credit),
+      "Photo: %s / Airport-Data.com",
+      strlen(photo.photographer) > 0 ? photo.photographer : "unknown");
+  lv_label_set_text(aircraftPhotoCreditLabel, credit);
+  lv_refr_now(nullptr);
+
+  ScopedSdLock storageLock(5000);
+  if (!storageLock) {
+    lv_label_set_text(aircraftPhotoStatusLabel, "SD card is busy");
+    return;
+  }
+  File image = SD.open(photo.imagePath, FILE_READ);
+  uint16_t width = 0;
+  uint16_t height = 0;
+  const bool valid =
+      image && jpegDimensions(image, width, height) &&
+      width > 0 && height > 0;
+  image.close();
+  if (!valid) {
+    lv_label_set_text(aircraftPhotoStatusLabel, "Aircraft image is invalid");
+    return;
+  }
+  const float scale =
+      min(1.0f, min(150.0f / width, 100.0f / height));
+  const int32_t drawnWidth =
+      max(1, static_cast<int32_t>(lroundf(width * scale)));
+  const int32_t drawnHeight =
+      max(1, static_cast<int32_t>(lroundf(height * scale)));
+  const int32_t imageX = 160 + (150 - drawnWidth) / 2;
+  const int32_t imageY = 85 + (100 - drawnHeight) / 2;
+  aircraftPhotoDrawn = display.drawJpgFile(
+      SD,
+      photo.imagePath,
+      imageX,
+      imageY,
+      150,
+      100,
+      0,
+      0,
+      scale,
+      0.0f,
+      datum_t::top_left);
+  if (!aircraftPhotoDrawn) {
+    lv_label_set_text(aircraftPhotoStatusLabel, "Could not draw aircraft image");
+  }
 }
 
 void aircraftEvent(lv_event_t* event) {
@@ -5372,7 +5506,7 @@ void initialiseDisplay() {
   sdFileSystemDriver.tell_cb = lvglSdTell;
   lv_fs_drv_register(&sdFileSystemDriver);
 
-  lv_disp_draw_buf_init(&drawBuffer, bufferOne, bufferTwo, kScreenWidth * 10);
+  lv_disp_draw_buf_init(&drawBuffer, bufferOne, nullptr, kScreenWidth * 5);
 
   lv_disp_drv_init(&displayDriver);
   displayDriver.hor_res = kScreenWidth;
@@ -5436,7 +5570,7 @@ void showStartupScreen() {
   display.setTextColor(0x632C);
   display.setTextSize(1);
   display.drawString("Starting...", kScreenWidth / 2, kScreenHeight - 6);
-  delay(1200);
+  delay(drawn ? 4000 : 1200);
 }
 
 void confirmRunningFirmware() {
@@ -5566,6 +5700,7 @@ void loop() {
     lastLiveUiUpdate = millis();
     renderWeatherPage();
     renderFlightsPage();
+    renderAircraftPhoto();
     renderBambuddyPage();
     renderSystemsPage();
     renderFirmwarePage();

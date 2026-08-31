@@ -1,4 +1,4 @@
-ESP32 dashboard v1.1.0 firmware
+ESP32 dashboard v1.1.1 firmware
 Build date: 2026-08-31
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,640,672 bytes
-firmware.bin SHA-256: 3414d9524b638cc88889e9125a72694f76802c747989b404ceea525829e2ca5c
+firmware.bin size: 1,649,840 bytes
+firmware.bin SHA-256: b79847440e556506635ee04170aa46569724f3d690d94a6a62c4e3878dcf4f25
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -46,9 +46,13 @@ Settings includes a scrollable Firmware tile and on-device update controls
 The portal reports installed/latest versions and OTA progress
 OTA downloads are serialized with other TLS network requests
 Firmware streams directly into the inactive OTA slot
-Release manifest size and SHA-256 are verified before activation
+GitHub API asset size and SHA-256 are verified before activation
 Rollback remains available until the updated firmware completes startup
 The current stable release can be reinstalled after a successful update check
+Aircraft details load one on-demand Airport-Data.com thumbnail by ICAO hex
+Aircraft photo downloads are bounded, JPEG-validated, and replace the prior copy
+Photographer and Airport-Data.com credits appear below available photos
+Custom startup artwork remains visible for four seconds
 The portal validates and atomically installs 320x240 startup JPEGs
 Configuration reloads and live-data downloads coordinate SD-card access
 Weather and aircraft downloads enforce bounded response sizes
@@ -57,7 +61,8 @@ Generic startup artwork is embedded with an SD-card JPEG override
 Portal sections are collapsible and the HTML buffer is reserved atomically
 Core-0 network worker stack: 16,384 bytes
 Core-0 OTA worker stack: 12,288 bytes
-LVGL memory pool: 40 KB
+LVGL memory pool: 36 KB
+LVGL display buffer: one synchronous five-row buffer
 
 Boot components:
 bootloader.bin SHA-256: 5b1b0cd6bcbfd6de6d388652a46e9b6e341f36adb9127d1e654d21dadeae74bd

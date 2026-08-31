@@ -142,6 +142,7 @@ LcPZew==
 enum class NetworkJob : uint8_t {
   weather,
   flights,
+  aircraftPhoto,
   bambuddy,
   systems,
 };
@@ -149,6 +150,7 @@ enum class NetworkJob : uint8_t {
 LiveDataSettings currentSettings;
 WeatherData weatherData;
 FlightsData flightsData;
+AircraftPhotoData aircraftPhotoData;
 BambuddyData bambuddyData;
 SystemsData systemsData;
 QueueHandle_t jobQueue = nullptr;
@@ -157,6 +159,7 @@ SemaphoreHandle_t storageMutex = nullptr;
 SemaphoreHandle_t networkMutex = nullptr;
 bool weatherBusy = false;
 bool flightsBusy = false;
+bool aircraftPhotoBusy = false;
 bool bambuddyBusy = false;
 bool systemsBusy = false;
 char cachedLocationSearch[101] = {};
@@ -165,6 +168,7 @@ float cachedLatitude = 0;
 float cachedLongitude = 0;
 bool cachedLocationValid = false;
 uint32_t openMeteoBlockedUntil = 0;
+char requestedAircraftHex[9] = {};
 
 template <size_t Size>
 void copyText(char (&destination)[Size], const char* source) {
@@ -1211,6 +1215,179 @@ void fetchFlights(const LiveDataSettings& settings) {
   xSemaphoreGive(dataMutex);
 }
 
+void fetchAircraftPhoto() {
+  AircraftPhotoData result;
+  result.state = LiveDataState::error;
+
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  copyText(result.aircraftHex, requestedAircraftHex);
+  xSemaphoreGive(dataMutex);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    copyText(result.error, "Wi-Fi is offline");
+  } else if (strlen(result.aircraftHex) < 6) {
+    copyText(result.error, "No aircraft identifier is available");
+  } else if (!ensureClock(result.error, sizeof(result.error))) {
+  } else {
+    const String metadataUrl =
+        "https://airport-data.com/api/ac_thumb.json?m=" +
+        urlEncode(result.aircraftHex) + "&n=1";
+    WiFiClientSecure metadataClient;
+    // Airport-Data currently uses a P-384 issuer chain that exceeds the
+    // no-PSRAM CYD's contiguous heap. The response contains only public photo
+    // data and is constrained to exact hosts, bounded sizes, and valid JPEGs.
+    metadataClient.setInsecure();
+    metadataClient.setHandshakeTimeout(6);
+    HTTPClient metadataRequest;
+    metadataRequest.setConnectTimeout(6000);
+    metadataRequest.setTimeout(15000);
+    metadataRequest.setReuse(true);
+    metadataRequest.setUserAgent(
+        "CYD-Desk-Dashboard/1.1 "
+        "(+https://github.com/M1XZG/cyd-desk-dashboard)");
+    if (!metadataRequest.begin(metadataClient, metadataUrl)) {
+      copyText(result.error, "Could not initialize the photo lookup");
+    } else {
+      const int metadataStatus = metadataRequest.GET();
+      if (metadataStatus == HTTP_CODE_NOT_FOUND) {
+        copyText(result.error, "No photo found for this aircraft");
+      } else if (metadataStatus != HTTP_CODE_OK) {
+        snprintf(
+            result.error,
+            sizeof(result.error),
+            "Aircraft photo service returned HTTP %d",
+            metadataStatus);
+      } else if (metadataRequest.getSize() > 8192) {
+        copyText(result.error, "Aircraft photo metadata was too large");
+      } else {
+        JsonDocument filter;
+        filter["status"] = true;
+        filter["count"] = true;
+        JsonObject itemFilter = filter["data"].add<JsonObject>();
+        itemFilter["image"] = true;
+        itemFilter["link"] = true;
+        itemFilter["photographer"] = true;
+        JsonDocument document;
+        const DeserializationError jsonError = deserializeJson(
+            document,
+            metadataRequest.getStream(),
+            DeserializationOption::Filter(filter));
+        if (jsonError) {
+          snprintf(
+              result.error,
+              sizeof(result.error),
+              "Aircraft photo metadata: %s",
+              jsonError.c_str());
+        } else if ((document["count"] | 0) < 1) {
+          copyText(result.error, "No photo found for this aircraft");
+        } else {
+          const char* imageUrl = document["data"][0]["image"] | "";
+          const char* sourceLink = document["data"][0]["link"] | "";
+          const char* photographer =
+              document["data"][0]["photographer"] | "";
+          constexpr char imagePrefix[] =
+              "https://airport-data.com/images/aircraft/thumbnails/";
+          constexpr char linkPrefix[] =
+              "https://airport-data.com/aircraft/photo/";
+          if (strncmp(imageUrl, imagePrefix, strlen(imagePrefix)) != 0 ||
+              strncmp(sourceLink, linkPrefix, strlen(linkPrefix)) != 0 ||
+              strlen(imageUrl) >= 192 ||
+              strlen(sourceLink) >= sizeof(result.sourceLink) ||
+              strlen(photographer) >= sizeof(result.photographer)) {
+            copyText(result.error, "Aircraft photo metadata was invalid");
+          } else {
+            String imageUrlCopy(imageUrl);
+            copyText(result.photographer, photographer);
+            copyText(result.sourceLink, sourceLink);
+            if (!metadataRequest.setURL(imageUrlCopy)) {
+              copyText(result.error, "Could not prepare the photo download");
+            } else {
+              const int imageStatus = metadataRequest.GET();
+              const int expectedBytes = metadataRequest.getSize();
+              if (imageStatus != HTTP_CODE_OK) {
+                snprintf(
+                    result.error,
+                    sizeof(result.error),
+                    "Aircraft image returned HTTP %d",
+                    imageStatus);
+              } else if (expectedBytes > 100U * 1024U) {
+                copyText(result.error, "Aircraft image was too large");
+              } else {
+                ScopedStorageLock storageLock(pdMS_TO_TICKS(10000));
+                constexpr char temporaryPath[] =
+                    "/dashboard/aircraft-photo.tmp";
+                constexpr char imagePath[] =
+                    "/dashboard/aircraft-photo.jpg";
+                if (!storageLock) {
+                  copyText(result.error, "SD card is busy");
+                } else {
+                  if (SD.exists(temporaryPath)) {
+                    SD.remove(temporaryPath);
+                  }
+                  File output = SD.open(temporaryPath, FILE_WRITE);
+                  if (!output) {
+                    copyText(result.error, "Could not create the aircraft image");
+                  } else {
+                    LimitedWriteStream limitedOutput(output, 100U * 1024U);
+                    const int transferResult =
+                        metadataRequest.writeToStream(&limitedOutput);
+                    const size_t bytesWritten = limitedOutput.written();
+                    output.close();
+                    if (limitedOutput.exceeded() || transferResult < 0 ||
+                        bytesWritten < 4 ||
+                        (expectedBytes > 0 &&
+                         bytesWritten != static_cast<size_t>(expectedBytes))) {
+                      SD.remove(temporaryPath);
+                      copyText(result.error, "Aircraft image download was incomplete");
+                    } else {
+                      File validation = SD.open(temporaryPath, FILE_READ);
+                      const bool validJpeg =
+                          validation &&
+                          validation.read() == 0xFF &&
+                          validation.read() == 0xD8 &&
+                          validation.seek(validation.size() - 2) &&
+                          validation.read() == 0xFF &&
+                          validation.read() == 0xD9;
+                      validation.close();
+                      if (!validJpeg) {
+                        SD.remove(temporaryPath);
+                        copyText(result.error, "Aircraft image was not a valid JPEG");
+                      } else {
+                        if (SD.exists(imagePath)) {
+                          SD.remove(imagePath);
+                        }
+                        if (!SD.rename(temporaryPath, imagePath)) {
+                          SD.remove(temporaryPath);
+                          copyText(result.error, "Could not save the aircraft image");
+                        } else {
+                          copyText(result.imagePath, imagePath);
+                          result.state = LiveDataState::ready;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      metadataRequest.end();
+      metadataClient.stop();
+    }
+  }
+
+  result.updatedAt = millis();
+  Serial.printf(
+      "[AIRCRAFT PHOTO] %s: %s\n",
+      result.aircraftHex,
+      result.state == LiveDataState::ready ? result.photographer : result.error);
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  aircraftPhotoData = result;
+  aircraftPhotoBusy = false;
+  xSemaphoreGive(dataMutex);
+}
+
 void fetchWeather(const LiveDataSettings& settings) {
   WeatherData result;
   result.state = LiveDataState::error;
@@ -2213,6 +2390,8 @@ void networkWorker(void*) {
       fetchWeather(settings);
     } else if (job == NetworkJob::flights) {
       fetchFlights(settings);
+    } else if (job == NetworkJob::aircraftPhoto) {
+      fetchAircraftPhoto();
     } else if (job == NetworkJob::bambuddy) {
       fetchBambuddy(settings);
     } else {
@@ -2235,6 +2414,8 @@ bool queueJob(NetworkJob job) {
     busy = &weatherBusy;
   } else if (job == NetworkJob::flights) {
     busy = &flightsBusy;
+  } else if (job == NetworkJob::aircraftPhoto) {
+    busy = &aircraftPhotoBusy;
   } else if (job == NetworkJob::bambuddy) {
     busy = &bambuddyBusy;
   } else {
@@ -2249,6 +2430,8 @@ bool queueJob(NetworkJob job) {
     weatherData.state = LiveDataState::loading;
   } else if (job == NetworkJob::flights) {
     flightsData.state = LiveDataState::loading;
+  } else if (job == NetworkJob::aircraftPhoto) {
+    aircraftPhotoData.state = LiveDataState::loading;
   } else if (job == NetworkJob::bambuddy) {
     bambuddyData.state = LiveDataState::loading;
   } else {
@@ -2318,6 +2501,33 @@ bool liveDataRequestFlights() {
   return queueJob(NetworkJob::flights);
 }
 
+bool liveDataRequestAircraftPhoto(const char* aircraftHex) {
+  if (dataMutex == nullptr || aircraftHex == nullptr ||
+      strlen(aircraftHex) < 6 ||
+      strlen(aircraftHex) >= sizeof(requestedAircraftHex) ||
+      jobQueue == nullptr) {
+    return false;
+  }
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  if (aircraftPhotoBusy) {
+    xSemaphoreGive(dataMutex);
+    return false;
+  }
+  copyText(requestedAircraftHex, aircraftHex);
+  aircraftPhotoBusy = true;
+  aircraftPhotoData.state = LiveDataState::loading;
+  xSemaphoreGive(dataMutex);
+  const NetworkJob job = NetworkJob::aircraftPhoto;
+  if (xQueueSend(jobQueue, &job, 0) == pdTRUE) {
+    return true;
+  }
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  aircraftPhotoBusy = false;
+  aircraftPhotoData.state = LiveDataState::idle;
+  xSemaphoreGive(dataMutex);
+  return false;
+}
+
 bool liveDataRequestBambuddy() {
   return queueJob(NetworkJob::bambuddy);
 }
@@ -2344,6 +2554,17 @@ FlightsData liveDataFlightsSnapshot() {
   FlightsData snapshot;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   snapshot = flightsData;
+  xSemaphoreGive(dataMutex);
+  return snapshot;
+}
+
+AircraftPhotoData liveDataAircraftPhotoSnapshot() {
+  AircraftPhotoData snapshot;
+  if (dataMutex == nullptr) {
+    return snapshot;
+  }
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  snapshot = aircraftPhotoData;
   xSemaphoreGive(dataMutex);
   return snapshot;
 }

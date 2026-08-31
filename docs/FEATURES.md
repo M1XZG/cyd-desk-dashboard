@@ -11,12 +11,13 @@ back to a built-in copy or text initial if the file cannot be read.
 
 ## Startup screen
 
-The dashboard opens with a 320x240 project graphic for at least 1.2 seconds.
-It reads `/dashboard/startup.jpg` from the SD card when that file is present
-and is a valid 320x240 baseline JPEG no larger than 200 KB. The browser portal
-provides a dedicated validated upload. An embedded copy of the standard
-artwork is used when the SD file cannot be displayed. A small **Starting...**
-label occupies the reserved lower strip.
+The dashboard opens with a 320x240 project graphic. The embedded standard
+artwork remains visible for at least 1.2 seconds. A valid custom
+`/dashboard/startup.jpg` remains visible for four seconds so the personalized
+screen can be seen before the Home page appears. The JPEG must be a 320x240
+baseline RGB image no larger than 200 KB. The browser portal provides a
+dedicated validated upload, and the embedded artwork is used if the SD file
+cannot be displayed.
 
 ![CYD Desk Dashboard startup screen](images/startup-screen.jpg)
 
@@ -58,7 +59,12 @@ to distinguish altitude or vertical movement.
 
 Tapping an aircraft opens a detail page with the fields supplied by the
 provider: callsign, registration, aircraft type, route, altitude, speed,
-heading, distance, bearing, and climb or descent rate.
+heading, distance, bearing, and climb or descent rate. The page then looks up
+one public thumbnail from Airport-Data.com by ICAO hex code. When available,
+the photo is downloaded on demand, fitted into a 150x100 frame, and shown with
+the photographer and source credit. The most recent thumbnail replaces the
+prior temporary copy on the SD card. Missing photos leave the flight details
+usable and show a short status message in the image frame.
 
 ![Aircraft detail screen](images/aircraft-screen.jpg)
 
@@ -129,9 +135,11 @@ stable GitHub release on demand. When a newer release is available, the device
 offers a two-tap confirmed installation. When the installed release is already
 current, the same screen can reinstall it.
 
-The firmware binary streams directly into the inactive OTA partition. Its byte
-count and SHA-256 digest must match the release manifest before that partition
-is activated. A failed, interrupted, or corrupt download leaves the running
+The firmware binary streams directly into the inactive OTA partition. GitHub's
+certificate-validated Releases API supplies the release version, exact byte
+count, download URL, and SHA-256 digest. The separately downloaded binary must
+match that authenticated size and digest before the inactive partition is
+activated. A failed, interrupted, or corrupt download leaves the running
 firmware selected. Configuration, touch calibration, and SD-card files are not
 part of the OTA image. After reboot, the ESP32 confirms the new image only
 after display, storage, configuration, and background services finish starting.

@@ -140,3 +140,6 @@ Keep the dashboard powered during installation. OTA replaces only
 `firmware.bin` and preserves NVS calibration, configuration, and SD-card
 content. A release that changes the bootloader or partition table still
 requires the full USB flashing procedure.
+
+Custom startup artwork remains visible for four seconds after a restart. The
+embedded standard artwork uses the shorter startup delay.

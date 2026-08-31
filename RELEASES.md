@@ -20,8 +20,8 @@ A clean or recovered board needs the full set of images. Flash
 CYD build and its `min_spiffs.csv` partition layout. Do not substitute a
 partition image from a different build.
 
-`ota-manifest.json` supplies the installed-version check with the release tag,
-firmware size, and firmware SHA-256 digest. `SBOM.spdx.json` lists the pinned
+`ota-manifest.json` records the release tag, firmware size, and firmware
+SHA-256 digest for users and release tooling. `SBOM.spdx.json` lists the pinned
 build platform, framework, firmware libraries, and repository Python tooling in
 SPDX 2.3 JSON format. `SHA256SUMS` contains the digest of every binary, the
 manifest, and the SBOM. Verify downloads from the directory that contains them:
@@ -45,10 +45,11 @@ release.
 ## OTA updates
 
 Firmware version `v1.1.0` and later can check and install the latest stable
-release from **Settings > Firmware** or the browser portal. The device follows
-GitHub's release redirects over certificate-validated HTTPS, streams
-`firmware.bin` into the inactive OTA slot, and compares its size and SHA-256
-against `ota-manifest.json` before activation.
+release from **Settings > Firmware** or the browser portal. The device obtains
+the release tag, firmware URL, byte count, and GitHub-generated SHA-256 digest
+from the certificate-validated GitHub Releases API. It then streams
+`firmware.bin` into the inactive OTA slot and accepts it only when the complete
+binary matches that authenticated size and digest.
 The next boot marks the image valid after firmware startup completes; the
 ESP32 rollback-enabled bootloader retains the previous slot until then.
 
