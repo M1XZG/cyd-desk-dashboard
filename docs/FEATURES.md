@@ -119,6 +119,8 @@ The portal edits ordinary settings and write-only credentials. It also includes
 an SD-card file manager. Sections collapse to keep the page manageable on
 phones. Saves are validated, staged, and redirected back to the main page.
 
+![Browser settings portal with collapsed sections](images/web-portal-overview.png)
+
 ## Reliability behavior
 
 Network work runs in a serialized FreeRTOS worker on the other ESP32 core.

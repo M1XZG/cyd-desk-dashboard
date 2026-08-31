@@ -14,6 +14,8 @@ Authentication uses HTTP Basic Auth:
 
 The portal is intended for a trusted LAN. It does not provide HTTPS.
 
+![Browser settings portal overview](images/web-portal-overview.png)
+
 ## Settings sections
 
 ### Display
@@ -21,16 +23,22 @@ The portal is intended for a trusted LAN. It does not provide HTTPS.
 Set brightness from 5 to 100 percent and choose normal or 180-degree rotation.
 Changing rotation schedules a restart and requires touch recalibration.
 
+![Display settings section](images/portal-display.png)
+
 ### Location and units
 
 Enter a town or postcode and choose 12/24-hour time, date format, temperature,
 wind, pressure, and precipitation units. Location changes are resolved during
 the next weather update.
 
+![Location and format settings section](images/portal-location-formats.png)
+
 ### Flights
 
 Choose airplanes.live, adsb.lol, or Flightradar24. Set the radius, maximum
 aircraft, minimum altitude, refresh interval, and optional provider token.
+
+![Flights settings section](images/portal-flights.png)
 
 ### Bambuddy
 
@@ -38,21 +46,36 @@ Set protocol, host, port, API base path, printer ID, and read-only key. Blank
 credential fields preserve the current value. The existing key is never sent
 back to the browser.
 
+![Bambuddy settings section](images/portal-bambuddy.png)
+
 ### Systems
 
 Set the refresh interval and configure up to four HTTP or TCP checks. Each
 monitor has an enable checkbox, name, host, port, and HTTP path.
+
+![Systems monitoring settings section](images/portal-systems.png)
 
 ### Home tiles
 
 Show or hide Weather, Flights, Bambuddy, Systems, and Calendar. Settings cannot
 be hidden.
 
+![Home tile visibility settings](images/portal-home-tiles.png)
+
 ### Wi-Fi and portal security
 
 Set the Wi-Fi SSID and password, then change the portal password. Any non-empty
 portal password is accepted. Passwords shorter than four characters produce a
 warning because the dashboard is intended for local desk use.
+
+![Wi-Fi network settings](images/portal-wifi.png)
+
+![Portal password settings](images/portal-security.png)
+
+Additional service credentials are entered in write-only fields. Leaving a
+field blank preserves its current value.
+
+![Additional service token settings](images/portal-service-tokens.png)
 
 ## Save behavior
 
@@ -79,6 +102,8 @@ Select **Browse SD card files** to:
 
 Uploads do not silently overwrite existing files. Paths containing traversal
 components are rejected. Recursive deletion is intentionally unavailable.
+
+![SD-card file manager](images/web-file-manager.png)
 
 ## Health endpoint
 

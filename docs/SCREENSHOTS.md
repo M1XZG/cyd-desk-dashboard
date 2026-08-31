@@ -16,13 +16,19 @@ camera metadata, and edited where necessary to hide local names and addresses.
 | `docs/images/systems-screen.jpg` | Systems |
 | `docs/images/calendar-screen.jpg` | Calendar |
 | `docs/images/settings-screen.jpg` | On-device Settings |
+| `docs/images/web-portal-overview.png` | Browser settings portal |
+| `docs/images/web-file-manager.png` | SD-card file manager |
+
+The browser portal also has focused captures for Display, Location and formats,
+Flights, Bambuddy, Systems monitoring, Home tiles, Wi-Fi, portal security, and
+additional service tokens. These are embedded beside their matching sections
+in `docs/WEB-PORTAL.md`.
 
 ## Still needed
 
 | Placeholder | Screen |
 | --- | --- |
 | `docs/images/aircraft-screen.svg` | Aircraft details |
-| `docs/images/web-portal.svg` | Browser settings portal |
 
 Future photographs should be landscape, framed closely around the device, and
 free of private IP addresses, Wi-Fi names, API keys, printer names, and personal
