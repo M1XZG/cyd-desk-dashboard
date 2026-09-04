@@ -20,6 +20,10 @@ Use a stable power supply and inspect serial output at 115200 baud. Navigation
 is deferred by design, so repeated resets usually indicate power, memory, or a
 hardware mismatch rather than a normal page transition.
 
+Firmware v1.1.5 fixes a `LoadProhibited` crash in the LVGL SD icon reader that
+could occur during repeated live-page redraws. Update if a v1.1.4 device
+reboots while left on Bambuddy or another icon-bearing screen.
+
 ## SD card shows unavailable
 
 Use FAT32 and place the `dashboard` folder at the card root. Reinsert the card
@@ -61,8 +65,14 @@ free provider. A quiet area can legitimately return no traffic.
 
 A negative HTTP status means the connection failed before the provider returned
 an HTTP response. Confirm the clock, DNS, and internet state, then allow the next
-scheduled refresh to retry. Current firmware includes the ISRG Root X1 trust
-anchor required by the certificate chain used by `adsb.lol`.
+scheduled refresh to retry. Firmware `v1.1.5` limits failed retries to once per
+minute and supports the newer Let's Encrypt YR chain used by `adsb.lol`.
+
+Arduino ESP32 2.0.17 cannot currently validate that chain without consuming
+most of the no-PSRAM board's largest free heap block. Firmware `v1.1.5` uses
+the providers' direct HTTP endpoints for bounded public aircraft and weather
+data; neither endpoint receives credentials. Aircraft-cache parsing yields to
+the scheduler so a large response cannot starve the Core 0 watchdog.
 
 ## Bambuddy is unavailable
 

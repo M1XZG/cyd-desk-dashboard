@@ -1,3 +1,3 @@
 #pragma once
 
-constexpr const char* kFirmwareVersion = "v1.1.4";
+constexpr const char* kFirmwareVersion = "v1.1.5";

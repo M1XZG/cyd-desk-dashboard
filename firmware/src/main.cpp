@@ -34,6 +34,11 @@ constexpr int kTouchIrq = 36;
 constexpr int kTouchClock = 25;
 constexpr int kTouchMosi = 32;
 constexpr int kTouchMiso = 39;
+constexpr uint16_t kIconWidth = 48;
+constexpr uint16_t kIconHeight = 48;
+constexpr size_t kIconDataSize = kIconWidth * kIconHeight / 2;
+constexpr uint32_t kIconHeader =
+    13U | (kIconWidth << 10) | (kIconHeight << 21);
 constexpr const char* kSetupAccessPointSsid = "desktopdashboard-setup";
 constexpr const char* kSetupAccessPointPassword = "deskdashboard";
 constexpr const char* kDefaultPosixTimezone =
@@ -178,6 +183,14 @@ bool portalUploadAccepted = false;
 bool portalUploadHasStorageLock = false;
 SemaphoreHandle_t sdMutex = nullptr;
 SemaphoreHandle_t networkMutex = nullptr;
+
+struct RuntimeIcon {
+  lv_img_dsc_t descriptor = {};
+  uint8_t data[kIconDataSize] = {};
+};
+
+RuntimeIcon runtimeIcons[
+    sizeof(kDefaultIconAssets) / sizeof(kDefaultIconAssets[0])];
 
 lv_disp_draw_buf_t drawBuffer;
 lv_color_t bufferOne[kScreenWidth * 5];
@@ -879,108 +892,60 @@ String joinSdPath(const String& directory, const String& name) {
   return directory == "/" ? "/" + name : directory + "/" + name;
 }
 
-String lvglSdPath(const char* path) {
-  return path[0] == '/' ? String(path) : "/" + String(path);
+void initialiseRuntimeIcons() {
+  for (size_t index = 0;
+       index < sizeof(kDefaultIconAssets) / sizeof(kDefaultIconAssets[0]);
+       ++index) {
+    const DefaultIconAsset& asset = kDefaultIconAssets[index];
+    RuntimeIcon& icon = runtimeIcons[index];
+    bool loadedFromSd = false;
+
+    if (sdReady) {
+      ScopedSdLock lock(0, true);
+      if (lock) {
+        const String path = "/dashboard/icons/" + String(asset.filename);
+        File file = SD.open(path, FILE_READ);
+        uint32_t header = 0;
+        loadedFromSd =
+            file &&
+            !file.isDirectory() &&
+            file.size() == sizeof(header) + kIconDataSize &&
+            file.read(
+                reinterpret_cast<uint8_t*>(&header),
+                sizeof(header)) == sizeof(header) &&
+            header == kIconHeader &&
+            file.read(icon.data, kIconDataSize) == kIconDataSize;
+        file.close();
+      }
+    }
+
+    if (!loadedFromSd) {
+      memcpy(icon.data, asset.data + sizeof(uint32_t), kIconDataSize);
+    }
+
+    icon.descriptor.header.always_zero = 0;
+    icon.descriptor.header.w = kIconWidth;
+    icon.descriptor.header.h = kIconHeight;
+    icon.descriptor.header.cf = LV_IMG_CF_ALPHA_4BIT;
+    icon.descriptor.data_size = kIconDataSize;
+    icon.descriptor.data = icon.data;
+  }
 }
 
-void* lvglSdOpen(lv_fs_drv_t*, const char* path, lv_fs_mode_t mode) {
-  if (!sdReady || mode != LV_FS_MODE_RD) {
+const lv_img_dsc_t* runtimeIconSource(const char* lvglPath) {
+  if (lvglPath == nullptr) {
     return nullptr;
   }
-  ScopedSdLock lock(0, true);
-  if (!lock) {
-    return nullptr;
+  const char* filename = strrchr(lvglPath, '/');
+  filename = filename == nullptr ? lvglPath : filename + 1;
+  for (size_t index = 0;
+       index < sizeof(kDefaultIconAssets) / sizeof(kDefaultIconAssets[0]);
+       ++index) {
+    if (strcmp(filename, kDefaultIconAssets[index].filename) == 0) {
+      return &runtimeIcons[index].descriptor;
+    }
   }
-  File* file = new (std::nothrow) File(SD.open(lvglSdPath(path), FILE_READ));
-  if (file == nullptr) {
-    return nullptr;
-  }
-  if (!*file || file->isDirectory()) {
-    file->close();
-    delete file;
-    return nullptr;
-  }
-  return file;
-}
-
-lv_fs_res_t lvglSdClose(lv_fs_drv_t*, void* filePointer) {
-  ScopedSdLock lock(0, true);
-  if (!lock) {
-    return LV_FS_RES_FS_ERR;
-  }
-  File* file = static_cast<File*>(filePointer);
-  file->close();
-  delete file;
-  return LV_FS_RES_OK;
-}
-
-lv_fs_res_t lvglSdRead(
-    lv_fs_drv_t*,
-    void* filePointer,
-    void* buffer,
-    uint32_t bytesToRead,
-    uint32_t* bytesRead) {
-  ScopedSdLock lock(0, true);
-  if (!lock) {
-    return LV_FS_RES_FS_ERR;
-  }
-  File* file = static_cast<File*>(filePointer);
-  *bytesRead = file->read(static_cast<uint8_t*>(buffer), bytesToRead);
-  return LV_FS_RES_OK;
-}
-
-lv_fs_res_t lvglSdSeek(
-    lv_fs_drv_t*,
-    void* filePointer,
-    uint32_t position,
-    lv_fs_whence_t whence) {
-  ScopedSdLock lock(0, true);
-  if (!lock) {
-    return LV_FS_RES_FS_ERR;
-  }
-  SeekMode mode = SeekSet;
-  if (whence == LV_FS_SEEK_CUR) {
-    mode = SeekCur;
-  } else if (whence == LV_FS_SEEK_END) {
-    mode = SeekEnd;
-  }
-  return static_cast<File*>(filePointer)->seek(position, mode)
-             ? LV_FS_RES_OK
-             : LV_FS_RES_FS_ERR;
-}
-
-lv_fs_res_t lvglSdTell(
-    lv_fs_drv_t*,
-    void* filePointer,
-    uint32_t* position) {
-  ScopedSdLock lock(0, true);
-  if (!lock) {
-    return LV_FS_RES_FS_ERR;
-  }
-  *position = static_cast<File*>(filePointer)->position();
-  return LV_FS_RES_OK;
-}
-
-bool sdIconAvailable(const char* lvglPath) {
-  if (!sdReady || strncmp(lvglPath, "S:", 2) != 0) {
-    return false;
-  }
-  ScopedSdLock lock(0, true);
-  if (!lock) {
-    return false;
-  }
-  File file = SD.open(lvglPath + 2, FILE_READ);
-  if (!file || file.isDirectory() || file.size() != 1156) {
-    file.close();
-    return false;
-  }
-  uint32_t header = 0;
-  const bool valid =
-      file.read(reinterpret_cast<uint8_t*>(&header), sizeof(header)) ==
-          sizeof(header) &&
-      header == (13U | (48U << 10) | (48U << 21));
-  file.close();
-  return valid;
+  return nullptr;
 }
 
 String selectedIf(bool selected) {
@@ -3616,10 +3581,12 @@ void updateWeatherIcon(const WeatherData& data) {
   }
   const char* path = weatherConditionIcon(data);
   if (path != renderedWeatherIconPath) {
-    if (!sdIconAvailable(path)) {
+    const lv_img_dsc_t* source = runtimeIconSource(path);
+    if (source == nullptr) {
       path = kTileIconPaths[0];
+      source = runtimeIconSource(path);
     }
-    lv_img_set_src(weatherIconImage, path);
+    lv_img_set_src(weatherIconImage, source);
     renderedWeatherIconPath = path;
   }
   lv_obj_set_style_img_recolor(
@@ -3750,7 +3717,7 @@ void showWeather() {
   lv_obj_clear_flag(iconPanel, LV_OBJ_FLAG_CLICKABLE);
 
   weatherIconImage = lv_img_create(iconPanel);
-  lv_img_set_src(weatherIconImage, kTileIconPaths[0]);
+  lv_img_set_src(weatherIconImage, runtimeIconSource(kTileIconPaths[0]));
   lv_obj_set_style_img_recolor(
       weatherIconImage,
       lv_color_hex(0xCBD5E1),
@@ -4440,9 +4407,11 @@ void showBambuddy() {
   lv_obj_clear_flag(iconPanel, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_clear_flag(iconPanel, LV_OBJ_FLAG_CLICKABLE);
 
-  if (sdIconAvailable(kTileIconPaths[2])) {
+  const lv_img_dsc_t* iconSource =
+      runtimeIconSource(kTileIconPaths[2]);
+  if (iconSource != nullptr) {
     lv_obj_t* icon = lv_img_create(iconPanel);
-    lv_img_set_src(icon, kTileIconPaths[2]);
+    lv_img_set_src(icon, iconSource);
     lv_obj_set_style_img_recolor(icon, lv_color_hex(0xF8FAFC), 0);
     lv_obj_set_style_img_recolor_opa(icon, LV_OPA_COVER, 0);
     lv_obj_center(icon);
@@ -5111,9 +5080,11 @@ void showHome() {
     lv_obj_set_style_shadow_width(tile, 0, 0);
     lv_obj_add_event_cb(tile, tileEvent, LV_EVENT_CLICKED, const_cast<char*>(kTileNames[index]));
 
-    if (sdIconAvailable(kTileIconPaths[index])) {
+    const lv_img_dsc_t* iconSource =
+        runtimeIconSource(kTileIconPaths[index]);
+    if (iconSource != nullptr) {
       lv_obj_t* icon = lv_img_create(tile);
-      lv_img_set_src(icon, kTileIconPaths[index]);
+      lv_img_set_src(icon, iconSource);
       lv_obj_set_style_img_recolor(icon, lv_color_hex(0xF8FAFC), 0);
       lv_obj_set_style_img_recolor_opa(icon, LV_OPA_COVER, 0);
       lv_obj_align(icon, LV_ALIGN_CENTER, 0, -12);
@@ -5524,15 +5495,6 @@ void initialiseDisplay() {
   display.fillScreen(TFT_BLACK);
 
   lv_init();
-  static lv_fs_drv_t sdFileSystemDriver;
-  lv_fs_drv_init(&sdFileSystemDriver);
-  sdFileSystemDriver.letter = 'S';
-  sdFileSystemDriver.open_cb = lvglSdOpen;
-  sdFileSystemDriver.close_cb = lvglSdClose;
-  sdFileSystemDriver.read_cb = lvglSdRead;
-  sdFileSystemDriver.seek_cb = lvglSdSeek;
-  sdFileSystemDriver.tell_cb = lvglSdTell;
-  lv_fs_drv_register(&sdFileSystemDriver);
 
   lv_disp_draw_buf_init(&drawBuffer, bufferOne, nullptr, kScreenWidth * 5);
 
@@ -5646,6 +5608,7 @@ void setup() {
   initialiseTouch();
   initialiseStorage();
   ensureSdScaffold();
+  initialiseRuntimeIcons();
   initialiseDisplay();
   showStartupScreen();
   liveDataBegin();
@@ -5734,9 +5697,11 @@ void loop() {
     renderFirmwarePage();
 
     if (WiFi.status() == WL_CONNECTED) {
+      const bool homeVisible = currentPage == "Desk Dashboard";
       {
         const WeatherData weather = liveDataWeatherSnapshot();
-        if (tileEnabled[0] && weather.state != LiveDataState::loading &&
+        if ((homeVisible || currentPage == "Weather") &&
+            tileEnabled[0] && weather.state != LiveDataState::loading &&
             (weather.state == LiveDataState::idle ||
              millis() - weather.updatedAt >= weatherRefreshMilliseconds)) {
           liveDataRequestWeather();
@@ -5747,9 +5712,10 @@ void loop() {
         const FlightsData flights = liveDataFlightsSnapshot();
         const uint32_t flightsRetry =
             flights.state == LiveDataState::error
-                ? 15000UL
+                ? 60000UL
                 : flightsRefreshMilliseconds;
-        if (tileEnabled[1] && flights.state != LiveDataState::loading &&
+        if ((homeVisible || currentPage == "Flights") &&
+            tileEnabled[1] && flights.state != LiveDataState::loading &&
             (flights.state == LiveDataState::idle ||
              millis() - flights.updatedAt >= flightsRetry)) {
           liveDataRequestFlights();
@@ -5762,7 +5728,8 @@ void loop() {
             currentPage == "Bambuddy"
                 ? bambuddyVisibleRefreshMilliseconds
                 : bambuddyBackgroundRefreshMilliseconds;
-        if (tileEnabled[2] && bambuddy.state != LiveDataState::loading &&
+        if ((homeVisible || currentPage == "Bambuddy") &&
+            tileEnabled[2] && bambuddy.state != LiveDataState::loading &&
             (bambuddy.state == LiveDataState::idle ||
              millis() - bambuddy.updatedAt >= bambuddyRefresh)) {
           liveDataRequestBambuddy();
@@ -5775,7 +5742,8 @@ void loop() {
             systems.state == LiveDataState::error
                 ? 15000UL
                 : systemsRefreshMilliseconds;
-        if (tileEnabled[3] && systems.state != LiveDataState::loading &&
+        if ((homeVisible || currentPage == "Systems") &&
+            tileEnabled[3] && systems.state != LiveDataState::loading &&
             (systems.state == LiveDataState::idle ||
              millis() - systems.updatedAt >= systemsRetry)) {
           liveDataRequestSystems();
@@ -5788,9 +5756,11 @@ void loop() {
   if (millis() - lastSerialStatus >= 10000) {
     lastSerialStatus = millis();
     Serial.printf(
-        "[STATUS] uptime=%lus heap=%u stack=%u sd=%s config=%s wifi=%s page=%s\n",
+        "[STATUS] uptime=%lus heap=%u max=%u min=%u stack=%u sd=%s config=%s wifi=%s page=%s\n",
         millis() / 1000,
         ESP.getFreeHeap(),
+        ESP.getMaxAllocHeap(),
+        ESP.getMinFreeHeap(),
         uxTaskGetStackHighWaterMark(nullptr),
         sdReady ? "ready" : "missing",
         configReady ? "loaded" : "fallback",

@@ -1,5 +1,5 @@
-ESP32 dashboard v1.1.4 firmware
-Build date: 2026-09-01
+ESP32 dashboard v1.1.5 firmware
+Build date: 2026-09-04
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
 Framework: Arduino ESP32 2.0.17
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,652,256 bytes
-firmware.bin SHA-256: 19d219bb527c90f22dace59279ff319e1fa65724ca2737171ec831941eb08579
+firmware.bin size: 1,650,496 bytes
+firmware.bin SHA-256: cb700a4230b12516aa22086db0449a9af1c641c94947db5068f338b332c71972
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -30,11 +30,15 @@ Calendar shows a local Sunday-first month grid with previous/next navigation
 Today is highlighted and Calendar performs no network requests
 The retired iCalendar downloader is excluded from the firmware build
 Weather caches resolved locations and enforces a ten-minute refresh minimum
-Open-Meteo uses the directly trusted Let's Encrypt Root YR chain
+Open-Meteo public data uses its direct HTTP endpoint to conserve contiguous heap
 MET Norway supplies weather when Open-Meteo is unavailable or returns HTTP 429
 sunrise-sunset.org supplies local solar and lunar data in fallback mode
 Weather content scrolls vertically with persistent position guidance
-adsb.lol TLS validation uses the provider's ISRG Root X1 certificate chain
+adsb.lol public data uses its direct HTTP endpoint to conserve contiguous heap
+Detail pages refresh only their own service; Home refreshes tile summaries
+Failed Flights requests retry no more than once per minute
+Aircraft response parsing yields to the Core-0 scheduler
+Bambuddy LAN requests complete within the Core-0 watchdog window
 The portal restart page returns to the dashboard after 15 seconds
 Portal password changes require at least eight characters
 The bootstrap portal password is no longer printed over serial
@@ -58,6 +62,8 @@ Custom startup artwork remains visible for four seconds
 The portal validates and atomically installs 320x240 startup JPEGs
 Configuration reloads and live-data downloads coordinate SD-card access
 Weather and aircraft downloads enforce bounded response sizes
+Replaceable SD icons are validated and copied into fixed RAM buffers at startup
+LVGL never holds an SD-backed icon file open while rendering
 The SD file manager limits each directory listing to 40 entries
 Generic startup artwork is embedded with an SD-card JPEG override
 Portal sections are collapsible and the HTML buffer is reserved atomically

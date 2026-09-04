@@ -322,17 +322,14 @@ class LimitedReadStream : public Stream {
   size_t read_ = 0;
 };
 
-bool secureGetJson(
+template <typename ClientType>
+bool getJson(
+    ClientType& client,
     const String& url,
-    const char* rootCertificate,
     JsonDocument& document,
     char* error,
     size_t errorSize,
     int* httpStatus = nullptr) {
-  WiFiClientSecure client;
-  client.setCACert(rootCertificate);
-  client.setHandshakeTimeout(6);
-
   HTTPClient request;
   request.setConnectTimeout(6000);
   request.setTimeout(8000);
@@ -374,6 +371,29 @@ bool secureGetJson(
   return true;
 }
 
+bool publicGetJson(
+    const String& url,
+    JsonDocument& document,
+    char* error,
+    size_t errorSize,
+    int* httpStatus = nullptr) {
+  WiFiClient client;
+  return getJson(client, url, document, error, errorSize, httpStatus);
+}
+
+bool secureGetJson(
+    const String& url,
+    const char* rootCertificate,
+    JsonDocument& document,
+    char* error,
+    size_t errorSize,
+    int* httpStatus = nullptr) {
+  WiFiClientSecure client;
+  client.setCACert(rootCertificate);
+  client.setHandshakeTimeout(6);
+  return getJson(client, url, document, error, errorSize, httpStatus);
+}
+
 bool looksLikeUkPostcode(const char* search) {
   size_t alphanumeric = 0;
   for (const char* cursor = search; *cursor != 0; ++cursor) {
@@ -405,12 +425,11 @@ bool geocodeLocation(
 
   JsonDocument geocoding;
   const String geocodingUrl =
-      "https://geocoding-api.open-meteo.com/v1/search?name=" +
+      "http://geocoding-api.open-meteo.com/v1/search?name=" +
       urlEncode(settings.locationSearch) +
       "&count=1&language=en&format=json";
-  if (!secureGetJson(
+  if (!publicGetJson(
           geocodingUrl,
-          kLetsEncryptRootYr,
           geocoding,
           error,
           errorSize)) {
@@ -995,9 +1014,13 @@ bool parseAircraftFile(
   bool escaped = false;
   bool oversized = false;
   int depth = 0;
+  size_t bytesRead = 0;
 
   while (input.available()) {
     const char character = static_cast<char>(input.read());
+    if (++bytesRead % 512 == 0) {
+      vTaskDelay(1);
+    }
     if (depth == 0) {
       if (character == ']') {
         return true;
@@ -1111,6 +1134,8 @@ void fetchFlights(const LiveDataSettings& settings) {
     const char* rootCertificate = kGtsRootR4;
     const bool isFlightradar =
         strcmp(settings.flightsProvider, "flightradar24") == 0;
+    const bool useAdsbLol =
+        strcmp(settings.flightsProvider, "adsb.lol") == 0;
     if (isFlightradar) {
       const float latitudeDelta = settings.flightsRadiusKm / 111.32f;
       const float longitudeDelta =
@@ -1125,29 +1150,34 @@ void fetchFlights(const LiveDataSettings& settings) {
             String(result.centreLongitude + longitudeDelta, 5) +
             "&limit=" + String(maximumAircraft);
     } else {
-      const bool useAdsbLol =
-          strcmp(settings.flightsProvider, "adsb.lol") == 0;
       rootCertificate = useAdsbLol ? kIsrgRootX1 : kGtsRootR4;
       const float radiusNm = min(settings.flightsRadiusKm / 1.852f, 250.0f);
       url = String(
                 useAdsbLol
-                    ? "https://api.adsb.lol/v2/point/"
+                    ? "http://api.adsb.lol/v2/point/"
                     : "https://api.airplanes.live/v2/point/") +
             String(result.centreLatitude, 5) + "/" +
             String(result.centreLongitude, 5) + "/" +
             String(radiusNm, 1);
     }
 
-    WiFiClientSecure client;
-    client.setCACert(rootCertificate);
-    client.setHandshakeTimeout(6);
-    client.setTimeout(30000);
+    WiFiClient plainClient;
+    WiFiClientSecure secureClient;
+    if (!useAdsbLol) {
+      secureClient.setCACert(rootCertificate);
+      secureClient.setHandshakeTimeout(6);
+    }
+    plainClient.setTimeout(30000);
+    secureClient.setTimeout(30000);
     HTTPClient request;
     request.setConnectTimeout(6000);
     request.setTimeout(30000);
     request.useHTTP10(true);
     request.setUserAgent("DeskDashboard/1.0");
-    if (!request.begin(client, url)) {
+    const bool requestStarted =
+        useAdsbLol ? request.begin(plainClient, url)
+                   : request.begin(secureClient, url);
+    if (!requestStarted) {
       copyText(result.error, "Could not initialize aircraft request");
     } else {
       if (isFlightradar) {
@@ -1193,7 +1223,8 @@ void fetchFlights(const LiveDataSettings& settings) {
           const size_t bytesWritten = limitedOutput.written();
           responseFile.close();
           request.end();
-          client.stop();
+          plainClient.stop();
+          secureClient.stop();
           Serial.printf(
               "[FLIGHTS] Downloaded %u bytes\n",
               static_cast<unsigned>(bytesWritten));
@@ -1455,7 +1486,7 @@ void fetchWeather(const LiveDataSettings& settings) {
       JsonDocument forecast;
       if (!openMeteoBlocked) {
         const String url =
-            "https://api.open-meteo.com/v1/forecast?latitude=" +
+            "http://api.open-meteo.com/v1/forecast?latitude=" +
             String(latitude, 5) + "&longitude=" + String(longitude, 5) +
             "&current=temperature_2m,apparent_temperature,relative_humidity_2m,"
             "weather_code,wind_speed_10m,surface_pressure,is_day"
@@ -1463,9 +1494,8 @@ void fetchWeather(const LiveDataSettings& settings) {
             "&timezone=auto&forecast_days=1&temperature_unit=" +
             String(settings.temperatureUnit) + "&wind_speed_unit=" +
             String(settings.windUnit);
-        forecastReady = secureGetJson(
+        forecastReady = publicGetJson(
             url,
-            kLetsEncryptRootYr,
             forecast,
             result.error,
             sizeof(result.error),
@@ -1578,8 +1608,8 @@ void fetchBambuddy(const LiveDataSettings& settings) {
 
     WiFiClient client;
     HTTPClient request;
-    request.setConnectTimeout(4000);
-    request.setTimeout(6000);
+    request.setConnectTimeout(2000);
+    request.setTimeout(2500);
     request.useHTTP10(true);
     if (!request.begin(client, url)) {
       copyText(result.error, "Could not initialize Bambuddy request");
@@ -2321,6 +2351,7 @@ void fetchSystems(const LiveDataSettings& settings) {
   copyText(result.gateway, WiFi.gatewayIP().toString().c_str());
 
   for (size_t index = 0; index < kMaximumSystemMonitors; ++index) {
+    vTaskDelay(1);
     const SystemMonitorSettings& monitor = settings.systemMonitors[index];
     SystemMonitorData& check = result.monitors[index];
     copyText(check.name, monitor.name);
