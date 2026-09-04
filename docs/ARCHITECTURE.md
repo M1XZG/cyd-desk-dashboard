@@ -27,6 +27,16 @@ installation. Both workers share a network mutex so the no-PSRAM device
 performs only one TLS operation at a time. Snapshots are copied under their own
 mutexes before the UI reads them.
 
+Detail pages use foreground-only refreshes: Weather refreshes Weather, Flights
+refreshes Flights, Bambuddy refreshes Bambuddy, and Systems refreshes Systems.
+The Home page refreshes enabled tile summaries sequentially. This prevents
+unrelated network and SD work while a detailed monitor is open.
+
+Replaceable 48x48 icons are validated and copied from the SD card into fixed
+RAM buffers during startup. LVGL renders those memory-backed images rather
+than holding FAT file handles open during redraws, so network cache activity
+cannot invalidate an icon read.
+
 ## Memory strategy
 
 The tested board has no PSRAM. The firmware therefore:
