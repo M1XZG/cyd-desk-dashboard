@@ -20,6 +20,9 @@ constexpr char kFirmwareAssetUrlPrefix[] =
 constexpr size_t kMaximumReleaseResponseBytes = 128U * 1024U;
 constexpr uint32_t kNetworkLockTimeoutMilliseconds = 15000;
 constexpr uint32_t kDownloadStallTimeoutMilliseconds = 30000;
+constexpr uint32_t kGithubConnectTimeoutMilliseconds = 20000;
+constexpr uint32_t kGithubRequestTimeoutMilliseconds = 30000;
+constexpr uint32_t kGithubHandshakeTimeoutSeconds = 20;
 
 constexpr char kGitHubCaBundle[] = R"pem(
 -----BEGIN CERTIFICATE-----
@@ -251,6 +254,13 @@ QueueHandle_t jobQueue = nullptr;
 OtaStatus status;
 ReleaseManifest manifest;
 bool jobBusy = false;
+bool browserUploadActive = false;
+bool browserUploadShaActive = false;
+bool browserUploadNetworkLocked = false;
+uint32_t browserUploadExpectedBytes = 0;
+uint32_t browserUploadWrittenBytes = 0;
+char browserUploadExpectedSha256[65] = {};
+mbedtls_sha256_context browserUploadShaContext;
 
 class ScopedNetworkLock {
  public:
@@ -367,8 +377,8 @@ int compareVersions(const char* left, const char* right) {
 }
 
 void configureRequest(HTTPClient& request) {
-  request.setConnectTimeout(8000);
-  request.setTimeout(15000);
+  request.setConnectTimeout(kGithubConnectTimeoutMilliseconds);
+  request.setTimeout(kGithubRequestTimeoutMilliseconds);
   request.useHTTP10(true);
 }
 
@@ -391,7 +401,7 @@ bool fetchManifest(char* error, size_t errorSize) {
   // Arduino ESP32 2.0.x can fail to build GitHub's cross-signed ECC chain.
   // Trust the long-lived GitHub API issuing CA directly instead.
   client.setCACert(kGithubIssuer);
-  client.setHandshakeTimeout(8);
+  client.setHandshakeTimeout(kGithubHandshakeTimeoutSeconds);
   Serial.printf(
       "[OTA] API TLS heap=%u largest=%u\n",
       ESP.getFreeHeap(),
@@ -409,12 +419,15 @@ bool fetchManifest(char* error, size_t errorSize) {
   request.addHeader("X-GitHub-Api-Version", "2022-11-28");
   const int httpStatus = request.GET();
   if (httpStatus != HTTP_CODE_OK) {
-    snprintf(
-        error,
-        errorSize,
-        "GitHub API HTTP %d: %s",
-        httpStatus,
-        HTTPClient::errorToString(httpStatus).c_str());
+    if (httpStatus < 0) {
+      snprintf(
+          error,
+          errorSize,
+          "Could not establish GitHub HTTPS connection (%d)",
+          httpStatus);
+    } else {
+      snprintf(error, errorSize, "GitHub API returned HTTP %d", httpStatus);
+    }
     request.end();
     return false;
   }
@@ -535,7 +548,7 @@ bool installRelease(char* error, size_t errorSize) {
 
   WiFiClientSecure client;
   client.setInsecure();
-  client.setHandshakeTimeout(8);
+  client.setHandshakeTimeout(kGithubHandshakeTimeoutSeconds);
   client.setTimeout(30000);
   HTTPClient request;
   configureRequest(request);
@@ -703,6 +716,28 @@ bool queueJob(OtaJob job) {
   return true;
 }
 
+void releaseBrowserUpload(bool abortUpdate) {
+  if (browserUploadShaActive) {
+    mbedtls_sha256_free(&browserUploadShaContext);
+    browserUploadShaActive = false;
+  }
+  if (abortUpdate) {
+    Update.abort();
+  }
+  if (browserUploadNetworkLocked && sharedNetworkMutex != nullptr) {
+    xSemaphoreGive(sharedNetworkMutex);
+  }
+  browserUploadNetworkLocked = false;
+  browserUploadActive = false;
+  browserUploadExpectedBytes = 0;
+  browserUploadWrittenBytes = 0;
+  browserUploadExpectedSha256[0] = '\0';
+
+  xSemaphoreTake(statusMutex, portMAX_DELAY);
+  jobBusy = false;
+  xSemaphoreGive(statusMutex);
+}
+
 }  // namespace
 
 void otaBegin(SemaphoreHandle_t networkMutex) {
@@ -741,6 +776,148 @@ bool otaRequestCheck() {
 
 bool otaRequestInstall() {
   return queueJob(OtaJob::install);
+}
+
+bool otaUploadBegin(
+    const char* version,
+    uint32_t size,
+    const char* sha256,
+    char* error,
+    size_t errorSize) {
+  if (statusMutex == nullptr || sharedNetworkMutex == nullptr) {
+    strlcpy(error, "OTA service is unavailable", errorSize);
+    return false;
+  }
+  if (!validReleaseVersion(version) || !validSha256(sha256) ||
+      size == 0 || size > ESP.getFreeSketchSpace()) {
+    strlcpy(error, "Invalid firmware release metadata", errorSize);
+    return false;
+  }
+  if (compareVersions(kFirmwareVersion, version) > 0) {
+    strlcpy(error, "Downgrading through OTA is not allowed", errorSize);
+    return false;
+  }
+
+  xSemaphoreTake(statusMutex, portMAX_DELAY);
+  if (jobBusy) {
+    xSemaphoreGive(statusMutex);
+    strlcpy(error, "Another update operation is already running", errorSize);
+    return false;
+  }
+  jobBusy = true;
+  xSemaphoreGive(statusMutex);
+
+  if (xSemaphoreTake(
+          sharedNetworkMutex,
+          pdMS_TO_TICKS(kNetworkLockTimeoutMilliseconds)) != pdTRUE) {
+    xSemaphoreTake(statusMutex, portMAX_DELAY);
+    jobBusy = false;
+    xSemaphoreGive(statusMutex);
+    strlcpy(error, "Another network request is still running", errorSize);
+    return false;
+  }
+  browserUploadNetworkLocked = true;
+
+  if (!Update.begin(size, U_FLASH)) {
+    snprintf(error, errorSize, "Could not prepare OTA: %s", Update.errorString());
+    releaseBrowserUpload(false);
+    return false;
+  }
+
+  mbedtls_sha256_init(&browserUploadShaContext);
+  browserUploadShaActive = true;
+  if (mbedtls_sha256_starts_ret(&browserUploadShaContext, 0) != 0) {
+    strlcpy(error, "Could not initialize SHA-256 verification", errorSize);
+    releaseBrowserUpload(true);
+    return false;
+  }
+
+  browserUploadActive = true;
+  browserUploadExpectedBytes = size;
+  browserUploadWrittenBytes = 0;
+  strlcpy(
+      browserUploadExpectedSha256,
+      sha256,
+      sizeof(browserUploadExpectedSha256));
+
+  xSemaphoreTake(statusMutex, portMAX_DELAY);
+  status.state = OtaState::downloading;
+  strlcpy(status.latestVersion, version, sizeof(status.latestVersion));
+  status.expectedBytes = size;
+  status.downloadedBytes = 0;
+  status.canInstall = false;
+  status.reinstall = compareVersions(kFirmwareVersion, version) == 0;
+  status.error[0] = '\0';
+  xSemaphoreGive(statusMutex);
+  return true;
+}
+
+bool otaUploadWrite(
+    uint8_t* data,
+    size_t length,
+    char* error,
+    size_t errorSize) {
+  if (!browserUploadActive ||
+      length > browserUploadExpectedBytes - browserUploadWrittenBytes) {
+    strlcpy(error, "Firmware upload exceeded its declared size", errorSize);
+    return false;
+  }
+  if (mbedtls_sha256_update_ret(
+          &browserUploadShaContext,
+          data,
+          length) != 0 ||
+      Update.write(data, length) != length) {
+    snprintf(error, errorSize, "Could not write OTA: %s", Update.errorString());
+    return false;
+  }
+  browserUploadWrittenBytes += length;
+  setStatus(
+      OtaState::downloading,
+      nullptr,
+      browserUploadWrittenBytes);
+  return true;
+}
+
+bool otaUploadFinish(char* error, size_t errorSize) {
+  if (!browserUploadActive ||
+      browserUploadWrittenBytes != browserUploadExpectedBytes) {
+    strlcpy(error, "Firmware upload ended before it was complete", errorSize);
+    releaseBrowserUpload(true);
+    return false;
+  }
+
+  uint8_t digest[32];
+  char digestHex[65];
+  if (mbedtls_sha256_finish_ret(&browserUploadShaContext, digest) != 0) {
+    strlcpy(error, "Could not finish SHA-256 verification", errorSize);
+    releaseBrowserUpload(true);
+    return false;
+  }
+  bytesToHex(digest, sizeof(digest), digestHex);
+  if (strcasecmp(digestHex, browserUploadExpectedSha256) != 0) {
+    strlcpy(error, "Firmware SHA-256 verification failed", errorSize);
+    releaseBrowserUpload(true);
+    return false;
+  }
+  if (!Update.end()) {
+    snprintf(error, errorSize, "Could not activate OTA: %s", Update.errorString());
+    releaseBrowserUpload(false);
+    return false;
+  }
+
+  const uint32_t completedBytes = browserUploadWrittenBytes;
+  releaseBrowserUpload(false);
+  setStatus(OtaState::readyToRestart, nullptr, completedBytes);
+  return true;
+}
+
+void otaUploadAbort(const char* error) {
+  if (browserUploadActive || browserUploadNetworkLocked) {
+    releaseBrowserUpload(true);
+  }
+  setStatus(
+      OtaState::error,
+      error == nullptr ? "Firmware upload was aborted" : error);
 }
 
 OtaStatus otaSnapshot() {

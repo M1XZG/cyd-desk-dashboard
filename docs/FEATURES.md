@@ -183,6 +183,12 @@ part of the OTA image. After reboot, the ESP32 confirms the new image only
 after display, storage, configuration, and background services finish starting.
 The bootloader can roll back if startup fails before that point.
 
+If the no-PSRAM ESP32 cannot complete GitHub HTTPS, the authenticated browser
+portal provides a browser-assisted path. The browser obtains the latest release
+metadata and SHA-256 digest from GitHub, downloads the official binary, verifies
+it with Web Crypto, and streams it over the LAN. The ESP32 calculates SHA-256
+again while writing the inactive OTA partition and rejects any mismatch.
+
 ![Installed firmware and current GitHub release on the device](images/firmware-screen.jpg)
 
 See [Over-the-air updates](OTA-UPDATES.md) for device installation, release

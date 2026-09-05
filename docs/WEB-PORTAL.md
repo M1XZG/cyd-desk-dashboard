@@ -97,6 +97,12 @@ release. **Check for updates** fetches a small release manifest. A newer release
 can then be installed after browser confirmation. If the versions match, the
 same control reinstalls the current release.
 
+The browser-assisted updater avoids GitHub TLS on the ESP32. Select **Prepare
+browser update**, download the release linked by the page, then choose that file
+under **Verify and install**. The browser checks the file against the SHA-256
+digest returned by GitHub before upload, and the ESP32 independently checks the
+same digest while streaming the firmware into the inactive slot.
+
 During installation, the portal reports download progress and waits for the
 dashboard to restart. The firmware size and SHA-256 digest are verified before
 the inactive OTA partition is selected for boot.
