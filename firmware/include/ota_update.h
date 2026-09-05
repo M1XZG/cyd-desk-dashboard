@@ -27,4 +27,17 @@ struct OtaStatus {
 void otaBegin(SemaphoreHandle_t networkMutex);
 bool otaRequestCheck();
 bool otaRequestInstall();
+bool otaUploadBegin(
+    const char* version,
+    uint32_t size,
+    const char* sha256,
+    char* error,
+    size_t errorSize);
+bool otaUploadWrite(
+    uint8_t* data,
+    size_t length,
+    char* error,
+    size_t errorSize);
+bool otaUploadFinish(char* error, size_t errorSize);
+void otaUploadAbort(const char* error);
 OtaStatus otaSnapshot();

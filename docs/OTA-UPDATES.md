@@ -43,6 +43,20 @@ process.
 The initial `Latest release: not checked` message is normal. No GitHub request
 is made until **Check for updates** is selected.
 
+### Browser-assisted fallback
+
+Firmware v1.3.1 and later can avoid GitHub HTTPS on the ESP32:
+
+1. Select **Prepare browser update** in the portal's Firmware section.
+2. Follow the generated link to download the latest official `firmware.bin`.
+3. Select that downloaded file under **Verify and install**.
+4. Leave the portal open while the firmware uploads and the dashboard restarts.
+
+The browser obtains the release size and SHA-256 digest directly from GitHub.
+It verifies the selected file with Web Crypto before upload. The ESP32 streams
+the upload into the inactive OTA partition, calculates SHA-256 independently,
+and activates it only when the size and digest match.
+
 ## What the device verifies
 
 The ESP32 retrieves the latest stable release from GitHub's

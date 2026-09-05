@@ -130,7 +130,14 @@ CYD has no PSRAM.
 
 An update-check error does not change the installed firmware. If GitHub returns
 HTTP `-1`, restart the dashboard, wait for the clock to appear in the top bar,
-and check again.
+and check again. Firmware v1.3.1 extends GitHub TLS handshakes from eight to
+twenty seconds and reports a failed HTTPS connection without incorrectly
+describing every TLS timeout as a refused connection.
+
+If direct checks remain unreliable, open the browser portal and use
+**Browser-assisted update**. The browser handles GitHub HTTPS and verifies the
+official release digest; the dashboard receives only the validated firmware
+stream and verifies SHA-256 again before activation.
 
 ## Firmware installation fails or stops
 

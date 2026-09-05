@@ -83,6 +83,12 @@ only the inactive application partition. On the next boot, startup completion
 marks the pending image valid. A crash or restart before that checkpoint leaves
 the bootloader able to select the prior OTA image.
 
+As a low-memory fallback, the settings page can move release discovery and
+download into the user's browser. GitHub's API supplies the official asset
+digest to browser JavaScript, Web Crypto verifies the selected binary, and the
+ESP32 verifies SHA-256 again while receiving the local upload. This removes
+GitHub TLS, release JSON, and redirect handling from the no-PSRAM device.
+
 When credentials are absent, the ESP32 starts a protected access point and
 captive setup page. Successful setup writes both live JSON documents and
 restarts. The access point is disabled as soon as station mode connects.

@@ -1,4 +1,4 @@
-ESP32 dashboard v1.3.0 firmware
+ESP32 dashboard v1.3.1 firmware
 Build date: 2026-09-05
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,667,504 bytes
-firmware.bin SHA-256: 5e51edccd25c1c60369f7f2213d19ea3e183ef9548d6cf1dab3de892a8cbda7c
+firmware.bin size: 1,675,504 bytes
+firmware.bin SHA-256: 1ac7e4b3f4b5fbd26f7f5b6206127d3ebdc8d057ba73b5fc76b19bf9d656f033
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -58,6 +58,8 @@ Settings > System shows the Wi-Fi channel and RSSI at page load
 Settings includes a scrollable Firmware tile and on-device update controls
 The portal reports installed/latest versions and OTA progress
 OTA downloads are serialized with other TLS network requests
+GitHub API and release TLS handshakes allow 20 seconds on slower connections
+The browser portal can verify and stream an official release without ESP32 TLS
 Firmware streams directly into the inactive OTA slot
 GitHub API asset size and SHA-256 are verified before activation
 Rollback remains available until the updated firmware completes startup
