@@ -124,7 +124,9 @@ reading in dBm.
 
 Weather needs only a town or postcode. Flights works without a key when using
 airplanes.live or adsb.lol. Bambuddy requires its host, printer ID, and a
-read-only API key. Systems monitors are optional.
+read-only API key. That key provides printer status, AMS information, and
+on-demand camera viewing without printer-control access. Systems monitors are
+optional.
 
 See [Web portal](WEB-PORTAL.md) for each field and
 [Features](FEATURES.md) for provider behavior.

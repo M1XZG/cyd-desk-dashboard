@@ -88,6 +88,26 @@ shows:
 - Nozzle and bed temperatures with targets
 - Printer Wi-Fi signal
 
+Two actions are available in the printer header:
+
+- **AMS** opens the configured AMS unit. Four slot cards show the spool colour,
+  material, sub-brand, estimated remaining percentage, and which slot is
+  loaded. Multiple AMS units can be selected with the previous and next
+  controls. Available AMS temperature and humidity readings appear in the
+  heading.
+- **Camera** requests one current JPEG from Bambuddy and displays it without
+  dashboard controls or a status bar. The image is fitted to the 320x240
+  display without changing its aspect ratio. Touch anywhere to return to the
+  Bambuddy page. It is a still image, not a continuously running video stream.
+
+Camera images are requested only when the Camera action is selected. The
+download is limited to 512 KB, validated as a JPEG, written to the SD card, and
+replaces the previous snapshot.
+
+The printer state appears in the top bar beside the Bambuddy page title. This
+keeps the printer name, signal strength, AMS action, and Camera action separate
+on the compact display.
+
 Use an API key limited to status reading. The firmware does not expose printer
 control, queue management, or job cancellation.
 

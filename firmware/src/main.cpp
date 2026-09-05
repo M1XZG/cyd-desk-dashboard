@@ -231,6 +231,9 @@ lv_obj_t* bambuddyRemainingLabel = nullptr;
 lv_obj_t* bambuddyNozzleLabel = nullptr;
 lv_obj_t* bambuddyBedLabel = nullptr;
 lv_obj_t* bambuddyLayerLabel = nullptr;
+lv_obj_t* bambuddyCameraStatusLabel = nullptr;
+bool bambuddyCameraDrawn = false;
+uint8_t selectedBambuddyAmsUnit = 0;
 lv_obj_t* systemsNameLabels[kSystemsCardCount] = {};
 lv_obj_t* systemsStateLabels[kSystemsCardCount] = {};
 lv_obj_t* systemsDetailLabels[kSystemsCardCount] = {};
@@ -260,6 +263,9 @@ enum class PendingNavigation : uint8_t {
   settings,
   flights,
   aircraft,
+  bambuddy,
+  bambuddyAms,
+  bambuddyCamera,
   systems,
   calendar,
 };
@@ -2934,9 +2940,37 @@ void addStatusBar(lv_obj_t* parent) {
   lv_obj_t* title = lv_label_create(bar);
   lv_label_set_text(title, currentPage.c_str());
   lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
-  lv_obj_set_width(title, 174);
+  lv_obj_set_width(
+      title,
+      currentPage == "Bambuddy" ? 88 : 174);
   lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
   lv_obj_align(title, LV_ALIGN_LEFT_MID, 8, 0);
+
+  bambuddyStatusLabel = nullptr;
+  if (currentPage == "Bambuddy") {
+    bambuddyStatusLabel = lv_label_create(bar);
+    lv_label_set_text(bambuddyStatusLabel, "Connecting");
+    lv_obj_set_style_text_font(
+        bambuddyStatusLabel,
+        &lv_font_montserrat_10,
+        0);
+    lv_obj_set_style_text_color(
+        bambuddyStatusLabel,
+        lv_color_hex(0xF8FAFC),
+        0);
+    lv_obj_set_style_bg_color(
+        bambuddyStatusLabel,
+        lv_color_hex(0x475569),
+        0);
+    lv_obj_set_style_bg_opa(
+        bambuddyStatusLabel,
+        LV_OPA_COVER,
+        0);
+    lv_obj_set_style_radius(bambuddyStatusLabel, 4, 0);
+    lv_obj_set_style_pad_hor(bambuddyStatusLabel, 5, 0);
+    lv_obj_set_style_pad_ver(bambuddyStatusLabel, 2, 0);
+    lv_obj_set_pos(bambuddyStatusLabel, 98, 5);
+  }
 
   wifiStatusLabel = lv_label_create(bar);
   lv_label_set_text(wifiStatusLabel, "WiFi");
@@ -2990,8 +3024,16 @@ void showFirmwareSettings();
 void showWeather();
 void showFlights();
 void showBambuddy();
+void showBambuddyAms();
+void showBambuddyCamera();
 void showSystems();
 void showStaticCalendar();
+lv_obj_t* createBambuddyPanel(
+    lv_obj_t* parent,
+    int x,
+    int y,
+    int width,
+    int height);
 
 void backEvent(lv_event_t* event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
@@ -4214,6 +4256,379 @@ void showFlights() {
   renderFlightsPage();
 }
 
+void bambuddyPageBackEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
+    pendingNavigation = PendingNavigation::bambuddy;
+  }
+}
+
+void bambuddyAmsEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
+    selectedBambuddyAmsUnit = 0;
+    pendingNavigation = PendingNavigation::bambuddyAms;
+  }
+}
+
+void bambuddyCameraEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
+    pendingNavigation = PendingNavigation::bambuddyCamera;
+  }
+}
+
+void bambuddyAmsPreviousEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) == LV_EVENT_CLICKED &&
+      selectedBambuddyAmsUnit > 0) {
+    --selectedBambuddyAmsUnit;
+    pendingNavigation = PendingNavigation::bambuddyAms;
+  }
+}
+
+void bambuddyAmsNextEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
+    return;
+  }
+  const BambuddyData data = liveDataBambuddySnapshot();
+  if (selectedBambuddyAmsUnit + 1 < data.amsUnitCount) {
+    ++selectedBambuddyAmsUnit;
+    pendingNavigation = PendingNavigation::bambuddyAms;
+  }
+}
+
+void bambuddyCameraBackEvent(lv_event_t* event) {
+  if (lv_event_get_code(event) == LV_EVENT_PRESSED) {
+    pendingNavigation = PendingNavigation::bambuddy;
+  }
+}
+
+lv_obj_t* createBambuddyActionButton(
+    lv_obj_t* parent,
+    int y,
+    const char* text,
+    lv_event_cb_t callback) {
+  lv_obj_t* button = lv_btn_create(parent);
+  lv_obj_set_size(button, 60, 24);
+  lv_obj_set_pos(button, 238, y);
+  lv_obj_set_style_radius(button, 6, 0);
+  lv_obj_set_style_bg_color(button, lv_color_hex(0x4338CA), 0);
+  lv_obj_set_style_shadow_width(button, 0, 0);
+  lv_obj_set_style_pad_all(button, 0, 0);
+  lv_obj_add_event_cb(button, callback, LV_EVENT_CLICKED, nullptr);
+
+  lv_obj_t* label = lv_label_create(button);
+  lv_label_set_text(label, text);
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_12, 0);
+  lv_obj_center(label);
+  return button;
+}
+
+uint32_t bambuddyTrayColour(const char* colour) {
+  if (colour == nullptr || strlen(colour) < 6) {
+    return 0x475569;
+  }
+  char rgb[7] = {};
+  memcpy(rgb, colour, 6);
+  char* end = nullptr;
+  const unsigned long parsed = strtoul(rgb, &end, 16);
+  return end == rgb + 6 ? static_cast<uint32_t>(parsed) : 0x475569;
+}
+
+void addBambuddyPageBackButton(lv_obj_t* parent) {
+  lv_obj_t* button = lv_btn_create(parent);
+  lv_obj_set_size(button, 66, 26);
+  lv_obj_set_pos(button, 8, 34);
+  lv_obj_set_style_radius(button, 6, 0);
+  lv_obj_set_style_bg_color(button, lv_color_hex(0x334155), 0);
+  lv_obj_set_style_shadow_width(button, 0, 0);
+  lv_obj_set_style_pad_all(button, 0, 0);
+  lv_obj_add_event_cb(
+      button,
+      bambuddyPageBackEvent,
+      LV_EVENT_CLICKED,
+      nullptr);
+
+  lv_obj_t* label = lv_label_create(button);
+  lv_label_set_text(label, "Bambuddy");
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_10, 0);
+  lv_obj_center(label);
+}
+
+void createBambuddyAmsTrayCard(
+    lv_obj_t* parent,
+    const BambuddyAmsTray& tray,
+    int x,
+    int y) {
+  lv_obj_t* card = createBambuddyPanel(parent, x, y, 148, 73);
+  lv_obj_set_style_border_color(
+      card,
+      lv_color_hex(tray.loaded ? 0x22C55E : 0x334155),
+      0);
+  lv_obj_set_style_border_width(card, tray.loaded ? 2 : 1, 0);
+
+  lv_obj_t* colour = lv_obj_create(card);
+  lv_obj_remove_style_all(colour);
+  lv_obj_set_size(colour, 9, 71);
+  lv_obj_set_pos(colour, 0, 0);
+  lv_obj_set_style_bg_color(
+      colour,
+      lv_color_hex(
+          tray.exists ? bambuddyTrayColour(tray.colour) : 0x1E293B),
+      0);
+  lv_obj_set_style_bg_opa(colour, LV_OPA_COVER, 0);
+
+  lv_obj_t* slot = lv_label_create(card);
+  lv_label_set_text_fmt(
+      slot,
+      tray.loaded ? "SLOT %u  LOADED" : "SLOT %u",
+      static_cast<unsigned>(tray.id + 1));
+  lv_obj_set_style_text_font(slot, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(
+      slot,
+      lv_color_hex(tray.loaded ? 0x86EFAC : 0x94A3B8),
+      0);
+  lv_obj_set_pos(slot, 16, 6);
+
+  lv_obj_t* material = lv_label_create(card);
+  lv_obj_set_width(material, 124);
+  lv_label_set_long_mode(material, LV_LABEL_LONG_DOT);
+  lv_label_set_text(
+      material,
+      !tray.exists
+          ? "Empty"
+          : (tray.material[0] != '\0' ? tray.material : "Unknown spool"));
+  lv_obj_set_style_text_font(material, &lv_font_montserrat_14, 0);
+  lv_obj_set_pos(material, 16, 23);
+
+  lv_obj_t* detail = lv_label_create(card);
+  lv_obj_set_width(detail, 124);
+  lv_label_set_long_mode(detail, LV_LABEL_LONG_DOT);
+  if (!tray.exists) {
+    lv_label_set_text(detail, "");
+  } else if (tray.name[0] != '\0' &&
+             strcmp(tray.name, tray.material) != 0) {
+    lv_label_set_text_fmt(
+        detail,
+        "%s  %u%%",
+        tray.name,
+        static_cast<unsigned>(tray.remainingPercent));
+  } else {
+    lv_label_set_text_fmt(
+        detail,
+        "%u%% remaining",
+        static_cast<unsigned>(tray.remainingPercent));
+  }
+  lv_obj_set_style_text_font(detail, &lv_font_montserrat_10, 0);
+  lv_obj_set_style_text_color(detail, lv_color_hex(0xCBD5E1), 0);
+  lv_obj_set_pos(detail, 16, 48);
+}
+
+void showBambuddyAms() {
+  currentPage = "Bambuddy AMS";
+  lv_obj_t* screen = lv_scr_act();
+  lv_obj_clean(screen);
+  styleScreen(screen);
+  addStatusBar(screen);
+  addBambuddyPageBackButton(screen);
+
+  const BambuddyData data = liveDataBambuddySnapshot();
+  if (data.state != LiveDataState::ready || !data.amsExists ||
+      data.amsUnitCount == 0) {
+    lv_obj_t* message = lv_label_create(screen);
+    lv_label_set_text(
+        message,
+        data.state == LiveDataState::error
+            ? data.error
+            : "No AMS information is available");
+    lv_obj_set_width(message, 220);
+    lv_obj_set_style_text_align(message, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(message);
+    return;
+  }
+
+  if (selectedBambuddyAmsUnit >= data.amsUnitCount) {
+    selectedBambuddyAmsUnit = 0;
+  }
+  const BambuddyAmsUnit& unit =
+      data.amsUnits[selectedBambuddyAmsUnit];
+
+  lv_obj_t* summary = lv_label_create(screen);
+  lv_obj_set_width(summary, 154);
+  if (unit.hasTemperature && unit.humidity >= 0) {
+    lv_label_set_text_fmt(
+        summary,
+        "AMS %u  %.0f C  %d%%",
+        static_cast<unsigned>(unit.id + 1),
+        unit.temperature,
+        unit.humidity);
+  } else if (unit.humidity >= 0) {
+    lv_label_set_text_fmt(
+        summary,
+        "AMS %u  %d%% RH",
+        static_cast<unsigned>(unit.id + 1),
+        unit.humidity);
+  } else {
+    lv_label_set_text_fmt(
+        summary,
+        "AMS %u",
+        static_cast<unsigned>(unit.id + 1));
+  }
+  lv_obj_set_style_text_font(summary, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_align(summary, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_pos(summary, 80, 39);
+
+  if (data.amsUnitCount > 1) {
+    lv_obj_t* previous = lv_btn_create(screen);
+    lv_obj_set_size(previous, 30, 26);
+    lv_obj_set_pos(previous, 242, 34);
+    lv_obj_set_style_pad_all(previous, 0, 0);
+    lv_obj_set_style_bg_color(previous, lv_color_hex(0x334155), 0);
+    lv_obj_add_event_cb(
+        previous,
+        bambuddyAmsPreviousEvent,
+        LV_EVENT_CLICKED,
+        nullptr);
+    lv_obj_t* previousLabel = lv_label_create(previous);
+    lv_label_set_text(previousLabel, "<");
+    lv_obj_center(previousLabel);
+
+    lv_obj_t* next = lv_btn_create(screen);
+    lv_obj_set_size(next, 30, 26);
+    lv_obj_set_pos(next, 280, 34);
+    lv_obj_set_style_pad_all(next, 0, 0);
+    lv_obj_set_style_bg_color(next, lv_color_hex(0x334155), 0);
+    lv_obj_add_event_cb(
+        next,
+        bambuddyAmsNextEvent,
+        LV_EVENT_CLICKED,
+        nullptr);
+    lv_obj_t* nextLabel = lv_label_create(next);
+    lv_label_set_text(nextLabel, ">");
+    lv_obj_center(nextLabel);
+  }
+
+  for (size_t index = 0; index < unit.trayCount; ++index) {
+    createBambuddyAmsTrayCard(
+        screen,
+        unit.trays[index],
+        index % 2 == 0 ? 8 : 164,
+        index < 2 ? 68 : 149);
+  }
+}
+
+void renderBambuddyCamera() {
+  if (currentPage != "Bambuddy Camera" ||
+      bambuddyCameraStatusLabel == nullptr) {
+    return;
+  }
+
+  const BambuddyCameraData camera =
+      liveDataBambuddyCameraSnapshot();
+  if (camera.state == LiveDataState::idle ||
+      camera.state == LiveDataState::loading) {
+    lv_label_set_text(
+        bambuddyCameraStatusLabel,
+        "Loading camera snapshot...\nTouch anywhere to go back");
+    return;
+  }
+  if (camera.state == LiveDataState::error) {
+    lv_label_set_text_fmt(
+        bambuddyCameraStatusLabel,
+        "%s\n\nTouch anywhere to go back",
+        camera.error);
+    return;
+  }
+  if (bambuddyCameraDrawn) {
+    return;
+  }
+
+  ScopedSdLock storageLock(5000);
+  if (!storageLock) {
+    lv_label_set_text(
+        bambuddyCameraStatusLabel,
+        "SD card is busy\n\nTouch anywhere to go back");
+    return;
+  }
+  File image = SD.open(camera.imagePath, FILE_READ);
+  uint16_t width = 0;
+  uint16_t height = 0;
+  const bool valid =
+      image && jpegDimensions(image, width, height) &&
+      width > 0 && height > 0;
+  image.close();
+  if (!valid) {
+    lv_label_set_text(
+        bambuddyCameraStatusLabel,
+        "Camera image is invalid\n\nTouch anywhere to go back");
+    return;
+  }
+
+  lv_label_set_text(bambuddyCameraStatusLabel, "");
+  lv_refr_now(nullptr);
+  const float scale =
+      min(1.0f, min(320.0f / width, 240.0f / height));
+  const int32_t drawnWidth =
+      max(1, static_cast<int32_t>(lroundf(width * scale)));
+  const int32_t drawnHeight =
+      max(1, static_cast<int32_t>(lroundf(height * scale)));
+  const int32_t x = (320 - drawnWidth) / 2;
+  const int32_t y = (240 - drawnHeight) / 2;
+  display.fillScreen(0x0000);
+  bambuddyCameraDrawn = display.drawJpgFile(
+      SD,
+      camera.imagePath,
+      x,
+      y,
+      320,
+      240,
+      0,
+      0,
+      scale,
+      0.0f,
+      datum_t::top_left);
+  if (!bambuddyCameraDrawn) {
+    lv_label_set_text(
+        bambuddyCameraStatusLabel,
+        "Could not draw camera image\n\nTouch anywhere to go back");
+  }
+}
+
+void showBambuddyCamera() {
+  currentPage = "Bambuddy Camera";
+  lv_obj_t* screen = lv_scr_act();
+  lv_obj_clean(screen);
+  wifiStatusLabel = nullptr;
+  sdStatusLabel = nullptr;
+  clockStatusLabel = nullptr;
+  for (lv_obj_t*& bar : wifiSignalBars) {
+    bar = nullptr;
+  }
+  styleScreen(screen);
+  lv_obj_set_style_bg_color(screen, lv_color_black(), 0);
+  lv_obj_add_flag(screen, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(
+      screen,
+      bambuddyCameraBackEvent,
+      LV_EVENT_PRESSED,
+      nullptr);
+
+  bambuddyCameraStatusLabel = lv_label_create(screen);
+  lv_obj_set_width(bambuddyCameraStatusLabel, 280);
+  lv_label_set_text(
+      bambuddyCameraStatusLabel,
+      "Loading camera snapshot...\nTouch anywhere to go back");
+  lv_obj_set_style_text_font(
+      bambuddyCameraStatusLabel,
+      &lv_font_montserrat_14,
+      0);
+  lv_obj_set_style_text_align(
+      bambuddyCameraStatusLabel,
+      LV_TEXT_ALIGN_CENTER,
+      0);
+  lv_obj_center(bambuddyCameraStatusLabel);
+  bambuddyCameraDrawn = false;
+  liveDataRequestBambuddyCamera();
+  renderBambuddyCamera();
+}
+
 const char* friendlyPrinterState(const BambuddyData& data) {
   if (!data.connected) {
     return "Offline";
@@ -4424,24 +4839,11 @@ void showBambuddy() {
   }
 
   bambuddyNameLabel = lv_label_create(headerPanel);
-  lv_obj_set_width(bambuddyNameLabel, 232);
+  lv_obj_set_width(bambuddyNameLabel, 166);
+  lv_obj_set_height(bambuddyNameLabel, 22);
   lv_label_set_long_mode(bambuddyNameLabel, LV_LABEL_LONG_DOT);
-  lv_obj_set_style_text_font(bambuddyNameLabel, &lv_font_montserrat_18, 0);
-  lv_obj_set_pos(bambuddyNameLabel, 64, 7);
-
-  bambuddyStatusLabel = lv_label_create(headerPanel);
-  lv_label_set_text(bambuddyStatusLabel, "Connecting");
-  lv_obj_set_style_text_font(bambuddyStatusLabel, &lv_font_montserrat_12, 0);
-  lv_obj_set_style_text_color(
-      bambuddyStatusLabel,
-      lv_color_hex(0xF8FAFC),
-      0);
-  lv_obj_set_style_bg_color(bambuddyStatusLabel, lv_color_hex(0x475569), 0);
-  lv_obj_set_style_bg_opa(bambuddyStatusLabel, LV_OPA_COVER, 0);
-  lv_obj_set_style_radius(bambuddyStatusLabel, 6, 0);
-  lv_obj_set_style_pad_hor(bambuddyStatusLabel, 7, 0);
-  lv_obj_set_style_pad_ver(bambuddyStatusLabel, 4, 0);
-  lv_obj_set_pos(bambuddyStatusLabel, 64, 34);
+  lv_obj_set_style_text_font(bambuddyNameLabel, &lv_font_montserrat_14, 0);
+  lv_obj_set_pos(bambuddyNameLabel, 64, 10);
 
   bambuddySignalLabel = lv_label_create(headerPanel);
   lv_obj_set_style_text_font(bambuddySignalLabel, &lv_font_montserrat_12, 0);
@@ -4449,7 +4851,18 @@ void showBambuddy() {
       bambuddySignalLabel,
       lv_color_hex(0x94A3B8),
       0);
-  lv_obj_align(bambuddySignalLabel, LV_ALIGN_BOTTOM_RIGHT, -8, -9);
+  lv_obj_set_pos(bambuddySignalLabel, 64, 36);
+
+  createBambuddyActionButton(
+      headerPanel,
+      5,
+      "AMS",
+      bambuddyAmsEvent);
+  createBambuddyActionButton(
+      headerPanel,
+      33,
+      "Camera",
+      bambuddyCameraEvent);
 
   lv_obj_t* jobPanel = createBambuddyPanel(screen, 8, 102, 304, 47);
   lv_obj_t* jobCaption = lv_label_create(jobPanel);
@@ -5651,6 +6064,12 @@ void loop() {
       showFlights();
     } else if (navigation == PendingNavigation::aircraft) {
       showAircraftDetail(selectedAircraft);
+    } else if (navigation == PendingNavigation::bambuddy) {
+      showBambuddy();
+    } else if (navigation == PendingNavigation::bambuddyAms) {
+      showBambuddyAms();
+    } else if (navigation == PendingNavigation::bambuddyCamera) {
+      showBambuddyCamera();
     } else if (navigation == PendingNavigation::systems) {
       showSystems();
     } else if (navigation == PendingNavigation::calendar) {
@@ -5693,6 +6112,7 @@ void loop() {
     renderFlightsPage();
     renderAircraftPhoto();
     renderBambuddyPage();
+    renderBambuddyCamera();
     renderSystemsPage();
     renderFirmwarePage();
 
