@@ -148,8 +148,11 @@ a Weather refresh by reopening the Weather page.
 The included helper opens a port without intentionally toggling reset:
 
 ```powershell
-py firmware/tools/capture_serial.py --port COM4 --duration 25
+py firmware/tools/capture_serial.py --duration 25
 ```
+
+The helper identifies a connected CH340 adapter automatically. If more than
+one suitable serial port is present, specify the dashboard with `--port COMx`.
 
 Serial output includes SD state, Wi-Fi state, heap, stack headroom, page name,
 provider status, and portal diagnostics. Redact private IP addresses, Wi-Fi
