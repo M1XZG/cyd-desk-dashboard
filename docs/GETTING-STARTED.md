@@ -59,11 +59,15 @@ cd firmware
 pio run -e cyd -t upload --upload-port /dev/ttyUSB0
 ```
 
-On Windows, replace the port with the board's COM port:
+On Windows, PlatformIO normally identifies the board automatically:
 
 ```powershell
-pio run -e cyd -t upload --upload-port COM4
+pio run -e cyd -t upload
 ```
+
+If more than one serial adapter is connected, list the current COM ports with
+`[System.IO.Ports.SerialPort]::GetPortNames()` and pass the correct one using
+`--upload-port`.
 
 Advanced users updating an existing installation can write only the
 application partition at `0x10000`. This preserves NVS values such as touch
