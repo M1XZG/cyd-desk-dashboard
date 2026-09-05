@@ -6,6 +6,14 @@ Confirm the board is an ILI9341-based 320x240 CYD and compare its pins with
 [Hardware](HARDWARE.md). A different display revision needs a different
 LovyanGFX panel definition.
 
+## Screen switches off overnight
+
+Night mode switches off only the backlight; the dashboard continues updating.
+Touch the screen once to wake it. That wake touch is consumed, so touch the
+intended control separately after the display lights. The default schedule is
+23:00-08:00 with a five-minute inactivity timeout. Change or disable it in the
+Display section of the browser portal.
+
 ## Touch is offset or reversed
 
 Re-run calibration after changing rotation. To force calibration, press and

@@ -3,7 +3,13 @@
   "display": {
     "rotation": 1,
     "brightness_percent": 85,
-    "panel_variant": "auto"
+    "panel_variant": "auto",
+    "night_mode": {
+      "enabled": true,
+      "start": "23:00",
+      "end": "08:00",
+      "screen_off_after_minutes": 5
+    }
   },
   "locale": {
     "time_format": "24h",

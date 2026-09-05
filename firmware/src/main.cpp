@@ -28,6 +28,9 @@ static_assert(kSystemsCardCount == 6, "Systems grid is designed for six cards");
 constexpr int kBacklightPin = 21;
 constexpr int kBacklightChannel = 0;
 constexpr int kSdCs = 5;
+constexpr uint16_t kDefaultNightStartMinutes = 23 * 60;
+constexpr uint16_t kDefaultNightEndMinutes = 8 * 60;
+constexpr uint32_t kDefaultNightTimeoutMilliseconds = 5UL * 60UL * 1000UL;
 
 constexpr int kTouchCs = 33;
 constexpr int kTouchIrq = 36;
@@ -83,7 +86,13 @@ constexpr const char kConfigExample[] = R"json({
   "display": {
     "rotation": 1,
     "brightness_percent": 85,
-    "panel_variant": "auto"
+    "panel_variant": "auto",
+    "night_mode": {
+      "enabled": true,
+      "start": "23:00",
+      "end": "08:00",
+      "screen_off_after_minutes": 5
+    }
   },
   "locale": {
     "time_format": "24h",
@@ -272,6 +281,14 @@ enum class PendingNavigation : uint8_t {
 PendingNavigation pendingNavigation = PendingNavigation::none;
 uint8_t brightnessPercent = 85;
 uint8_t displayRotation = 1;
+bool nightScreenTimeoutEnabled = true;
+uint16_t nightStartMinutes = kDefaultNightStartMinutes;
+uint16_t nightEndMinutes = kDefaultNightEndMinutes;
+uint32_t nightTimeoutMilliseconds = kDefaultNightTimeoutMilliseconds;
+bool nightWindowActive = false;
+bool displaySleeping = false;
+bool suppressTouchUntilRelease = false;
+uint32_t lastDisplayActivityAt = 0;
 String wifiSsid;
 String wifiPassword;
 String locationSearch;
@@ -326,13 +343,103 @@ struct TouchCalibration {
 
 TouchCalibration touchCalibration;
 
+void writeBacklight(uint8_t percent) {
+  const uint8_t duty = map(constrain(percent, 0, 100), 0, 100, 0, 255);
+  ledcWrite(kBacklightChannel, duty);
+}
+
 void setBacklight(uint8_t percent) {
   brightnessPercent = constrain(percent, 5, 100);
-  const uint8_t duty = map(brightnessPercent, 0, 100, 0, 255);
-  ledcWrite(kBacklightChannel, duty);
+  if (!displaySleeping) {
+    writeBacklight(brightnessPercent);
+  }
 
   if (currentPage == "Display" && brightnessLabel != nullptr) {
     lv_label_set_text_fmt(brightnessLabel, "%u%%", brightnessPercent);
+  }
+}
+
+void wakeDisplay() {
+  lastDisplayActivityAt = millis();
+  if (!displaySleeping) {
+    return;
+  }
+  displaySleeping = false;
+  writeBacklight(brightnessPercent);
+  Serial.println("[DISPLAY] Woke after touch or daytime transition");
+}
+
+void sleepDisplay() {
+  if (displaySleeping) {
+    return;
+  }
+  displaySleeping = true;
+  writeBacklight(0);
+  Serial.println("[DISPLAY] Night inactivity timeout; backlight off");
+}
+
+bool parseClockMinutes(const String& value, uint16_t& minutes) {
+  if (value.length() != 5 || value[2] != ':' ||
+      !isDigit(value[0]) || !isDigit(value[1]) ||
+      !isDigit(value[3]) || !isDigit(value[4])) {
+    return false;
+  }
+
+  const int hour = value.substring(0, 2).toInt();
+  const int minute = value.substring(3, 5).toInt();
+  if (hour > 23 || minute > 59) {
+    return false;
+  }
+  minutes = static_cast<uint16_t>(hour * 60 + minute);
+  return true;
+}
+
+bool isWithinNightWindow(uint16_t currentMinutes) {
+  if (nightStartMinutes == nightEndMinutes) {
+    return true;
+  }
+  if (nightStartMinutes < nightEndMinutes) {
+    return currentMinutes >= nightStartMinutes &&
+           currentMinutes < nightEndMinutes;
+  }
+  return currentMinutes >= nightStartMinutes ||
+         currentMinutes < nightEndMinutes;
+}
+
+void updateNightScreenTimeout() {
+  const time_t now = time(nullptr);
+  if (!nightScreenTimeoutEnabled || now <= 1700000000) {
+    nightWindowActive = false;
+    if (displaySleeping) {
+      wakeDisplay();
+    }
+    return;
+  }
+
+  struct tm localTime = {};
+  localtime_r(&now, &localTime);
+  const uint16_t currentMinutes =
+      static_cast<uint16_t>(localTime.tm_hour * 60 + localTime.tm_min);
+  const bool inNightWindow = isWithinNightWindow(currentMinutes);
+
+  if (!inNightWindow) {
+    nightWindowActive = false;
+    if (displaySleeping) {
+      wakeDisplay();
+    }
+    return;
+  }
+
+  if (!nightWindowActive) {
+    nightWindowActive = true;
+    lastDisplayActivityAt = millis();
+    Serial.println("[DISPLAY] Night timeout window started");
+    return;
+  }
+
+  if (!displaySleeping &&
+      millis() - lastDisplayActivityAt >= nightTimeoutMilliseconds) {
+    sleepDisplay();
   }
 }
 
@@ -424,10 +531,20 @@ void touchRead(lv_indev_drv_t*, lv_indev_data_t* data) {
   int x = 0;
   int y = 0;
   if (readTouch(x, y)) {
+    if (displaySleeping) {
+      wakeDisplay();
+      suppressTouchUntilRelease = true;
+    }
+    if (suppressTouchUntilRelease) {
+      data->state = LV_INDEV_STATE_RELEASED;
+      return;
+    }
+    lastDisplayActivityAt = millis();
     data->state = LV_INDEV_STATE_PRESSED;
     data->point.x = x;
     data->point.y = y;
   } else {
+    suppressTouchUntilRelease = false;
     data->state = LV_INDEV_STATE_RELEASED;
   }
 }
@@ -482,11 +599,33 @@ void loadConfiguration() {
   bambuddyPrinterId = 1;
   bambuddyKeyPresent = false;
   bambuddyApiKey = "";
+  nightScreenTimeoutEnabled = true;
+  nightStartMinutes = kDefaultNightStartMinutes;
+  nightEndMinutes = kDefaultNightEndMinutes;
+  nightTimeoutMilliseconds = kDefaultNightTimeoutMilliseconds;
 
   JsonDocument config;
   configReady = loadJsonFile("/dashboard/config.json", config);
   if (configReady) {
     setBacklight(config["display"]["brightness_percent"] | brightnessPercent);
+    nightScreenTimeoutEnabled =
+        config["display"]["night_mode"]["enabled"] | true;
+    const String nightStart =
+        String(config["display"]["night_mode"]["start"] | "23:00");
+    const String nightEnd =
+        String(config["display"]["night_mode"]["end"] | "08:00");
+    const uint32_t nightTimeoutMinutes = constrain(
+        config["display"]["night_mode"]["screen_off_after_minutes"] | 5,
+        1,
+        120);
+    if (!parseClockMinutes(nightStart, nightStartMinutes) ||
+        !parseClockMinutes(nightEnd, nightEndMinutes)) {
+      nightStartMinutes = kDefaultNightStartMinutes;
+      nightEndMinutes = kDefaultNightEndMinutes;
+      Serial.println(
+          "[CONFIG] Invalid night-mode time; using 23:00 to 08:00");
+    }
+    nightTimeoutMilliseconds = nightTimeoutMinutes * 60UL * 1000UL;
     locationSearch = String(config["location"]["search"] | "");
     timeFormat = String(config["locale"]["time_format"] | "24h");
     posixTimezone =
@@ -1458,7 +1597,7 @@ void handlePortalRoot() {
   const OtaStatus ota = otaSnapshot();
 
   String html;
-  if (!html.reserve(15000)) {
+  if (!html.reserve(16500)) {
     settingsServer.send(
         503,
         "text/plain",
@@ -1521,7 +1660,28 @@ void handlePortalRoot() {
   html += F("\"></label><label>Orientation<select name=\"rotation\">");
   appendPortalOption(html, "1", "Normal", String(config["display"]["rotation"] | 1));
   appendPortalOption(html, "3", "Rotate 180 degrees", String(config["display"]["rotation"] | 1));
-  html += F("</select></label></div></section>");
+  html += F("</select></label><label>Night mode starts"
+            "<input name=\"night_start\" type=\"time\" value=\"");
+  html += htmlEscape(
+      String(config["display"]["night_mode"]["start"] | "23:00"));
+  html += F("\"></label><label>Daytime starts"
+            "<input name=\"night_end\" type=\"time\" value=\"");
+  html += htmlEscape(
+      String(config["display"]["night_mode"]["end"] | "08:00"));
+  html += F("\"></label><label>Switch off after idle minutes"
+            "<input name=\"night_timeout_minutes\" type=\"number\" min=\"1\" "
+            "max=\"120\" value=\"");
+  html += String(
+      config["display"]["night_mode"]["screen_off_after_minutes"] | 5);
+  html += F("\"></label></div><label class=\"check\">"
+            "<input type=\"checkbox\" name=\"night_mode_enabled\"");
+  if (config["display"]["night_mode"]["enabled"] | true) {
+    html += F(" checked");
+  }
+  html += F(">Switch off the backlight after inactivity at night</label>"
+            "<p class=\"hint\">A touch wakes the screen without activating "
+            "the control underneath. The screen remains on during daytime.</p>"
+            "</section>");
 
   html += F("<section><h2>Location and formats</h2><div class=\"grid\">"
             "<label>Town, postcode, or place<input name=\"location_search\" maxlength=\"100\" value=\"");
@@ -1789,6 +1949,7 @@ bool savePortalSettings(int& savedBrightness) {
 
   int brightness = 0;
   int rotation = 0;
+  int nightTimeoutMinutes = 0;
   int flightsRadiusValue = 0;
   int flightsMaximumValue = 0;
   int flightsMinimumAltitudeValue = 0;
@@ -1798,6 +1959,12 @@ bool savePortalSettings(int& savedBrightness) {
   int bambuddyPrinterValue = 0;
   if (!parsePortalInteger("brightness", 5, 100, brightness, error) ||
       !parsePortalInteger("rotation", 1, 3, rotation, error) ||
+      !parsePortalInteger(
+          "night_timeout_minutes",
+          1,
+          120,
+          nightTimeoutMinutes,
+          error) ||
       !parsePortalInteger(
           "flights_radius",
           10,
@@ -1856,6 +2023,10 @@ bool savePortalSettings(int& savedBrightness) {
   const String wifiPasswordInput = settingsServer.arg("wifi_password");
   const String portalPasswordInput = settingsServer.arg("portal_password");
   String timezone = settingsServer.arg("posix_timezone");
+  const String nightStart = settingsServer.arg("night_start");
+  const String nightEnd = settingsServer.arg("night_end");
+  uint16_t parsedNightStart = 0;
+  uint16_t parsedNightEnd = 0;
   host.trim();
   apiPath.trim();
   timezone.trim();
@@ -1871,7 +2042,9 @@ bool savePortalSettings(int& savedBrightness) {
   constexpr const char* aircraftProviders[] = {
       "airplanes.live", "adsb.lol", "flightradar24"};
 
-  if (locationSearch.length() > 100 || !validPortalHost(host) ||
+  if (!parseClockMinutes(nightStart, parsedNightStart) ||
+      !parseClockMinutes(nightEnd, parsedNightEnd) ||
+      locationSearch.length() > 100 || !validPortalHost(host) ||
       apiPath.length() > 64 || !apiPath.startsWith("/") ||
       !validChoice(protocol, protocols, 1) ||
       !validChoice(
@@ -1905,6 +2078,12 @@ bool savePortalSettings(int& savedBrightness) {
   config["version"] = 1;
   config["display"]["brightness_percent"] = brightness;
   config["display"]["rotation"] = rotation;
+  config["display"]["night_mode"]["enabled"] =
+      settingsServer.hasArg("night_mode_enabled");
+  config["display"]["night_mode"]["start"] = nightStart;
+  config["display"]["night_mode"]["end"] = nightEnd;
+  config["display"]["night_mode"]["screen_off_after_minutes"] =
+      nightTimeoutMinutes;
   config["location"]["search"] = locationSearch;
   config["locale"]["time_format"] = settingsServer.arg("time_format");
   config["locale"]["date_format"] = settingsServer.arg("date_format");
@@ -6104,6 +6283,7 @@ void loop() {
   if (millis() - lastStatusUpdate >= 1000) {
     lastStatusUpdate = millis();
     updateStatusBar();
+    updateNightScreenTimeout();
   }
 
   if (millis() - lastLiveUiUpdate >= 500) {
@@ -6176,7 +6356,7 @@ void loop() {
   if (millis() - lastSerialStatus >= 10000) {
     lastSerialStatus = millis();
     Serial.printf(
-        "[STATUS] uptime=%lus heap=%u max=%u min=%u stack=%u sd=%s config=%s wifi=%s page=%s\n",
+        "[STATUS] uptime=%lus heap=%u max=%u min=%u stack=%u sd=%s config=%s wifi=%s display=%s page=%s\n",
         millis() / 1000,
         ESP.getFreeHeap(),
         ESP.getMaxAllocHeap(),
@@ -6185,6 +6365,7 @@ void loop() {
         sdReady ? "ready" : "missing",
         configReady ? "loaded" : "fallback",
         WiFi.status() == WL_CONNECTED ? "online" : "offline",
+        displaySleeping ? "sleeping" : "awake",
         currentPage.c_str());
   }
 
