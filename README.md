@@ -27,6 +27,7 @@ artwork stored on a microSD card.
 - Validated startup-artwork upload with an embedded fallback
 - Local clock with compact WiFi and SD health badges on every page
 - Saved touch calibration, orientation, brightness, and tile visibility
+- Configurable nighttime backlight shutoff with touch-to-wake
 - Serialized network and SD work to keep the interface responsive
 
 ## Start here

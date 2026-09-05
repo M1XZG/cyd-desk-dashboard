@@ -1,4 +1,4 @@
-ESP32 dashboard v1.2.0 firmware
+ESP32 dashboard v1.3.0 firmware
 Build date: 2026-09-05
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,662,864 bytes
-firmware.bin SHA-256: f65d1c5e667061f1ee6201a0d93cd3f26aff34d52d46cc300ffc0228a1481d46
+firmware.bin size: 1,667,504 bytes
+firmware.bin SHA-256: 5e51edccd25c1c60369f7f2213d19ea3e183ef9548d6cf1dab3de892a8cbda7c
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -51,6 +51,8 @@ The bootstrap portal password is no longer printed over serial
 First-run setup uses the protected desktopdashboard-setup access point
 SNTP starts independently with a configurable POSIX timezone
 The top bar shows local time with compact WiFi and SD state badges
+Night mode switches off the backlight after a configurable inactivity timeout
+Touch wakes the display without activating the control underneath
 Four live bars show Wi-Fi signal strength in the top bar
 Settings > System shows the Wi-Fi channel and RSSI at page load
 Settings includes a scrollable Firmware tile and on-device update controls

@@ -18,6 +18,14 @@ is the preferred editor after the first Wi-Fi connection.
 `display.rotation` accepts `1` for normal landscape and `3` for 180-degree
 rotation. `brightness_percent` is constrained to 5-100.
 
+Night mode is enabled by default. Between `display.night_mode.start` and
+`display.night_mode.end`, the backlight switches off after
+`screen_off_after_minutes` without a touch. The defaults are 23:00, 08:00, and
+five minutes. The schedule uses the local clock from `locale.posix_timezone`.
+A touch restores the configured brightness, restarts the timer, and is
+consumed so it does not activate the control underneath. Outside the scheduled
+window, the display stays on.
+
 ### Locale and weather
 
 Supported portal values include:

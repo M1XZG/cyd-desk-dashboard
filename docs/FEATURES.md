@@ -148,6 +148,11 @@ brightness, tile visibility, service summaries, network status, portal
 address, and the generated bootstrap password. Text-heavy configuration is
 kept in the browser portal rather than an on-screen keyboard.
 
+The browser portal also controls the nighttime screen timeout. By default, the
+backlight switches off after five minutes without a touch between 23:00 and
+08:00 local time. The first touch wakes the display without activating the
+control underneath, and the backlight stays on continuously during daytime.
+
 ![On-device settings menu](images/settings-screen.jpg)
 
 The Firmware tile sits on the final row of the scrollable Settings page.

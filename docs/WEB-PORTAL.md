@@ -30,6 +30,9 @@ The portal is intended for a trusted LAN. It does not provide HTTPS.
 
 Set brightness from 5 to 100 percent and choose normal or 180-degree rotation.
 Changing rotation schedules a restart and requires touch recalibration.
+Night mode controls its start and end times and the inactivity period before
+the backlight switches off. It is enabled by default from 23:00 to 08:00 with
+a five-minute timeout.
 
 ![Display settings section](images/portal-display.png)
 
