@@ -52,7 +52,8 @@ aircraft, minimum altitude, refresh interval, and optional provider token.
 
 Set the HTTP host, port, API base path, printer ID, and read-only key. Blank
 credential fields preserve the current value. The existing key is never sent
-back to the browser.
+back to the browser. The same read-status key covers AMS data and the
+short-lived token used for an on-demand camera snapshot.
 
 ![Bambuddy settings section](images/portal-bambuddy.png)
 

@@ -21,11 +21,11 @@ deferred until after `lv_timer_handler()`, preventing an active event from
 destroying its own LVGL object tree.
 
 A worker pinned to core 0 handles Weather, Flights, on-demand aircraft photos,
-Bambuddy, and Systems jobs. One queue and per-service busy flags prevent those
-requests from overlapping. A second core-0 worker handles update checks and OTA
-installation. Both workers share a network mutex so the no-PSRAM device
-performs only one TLS operation at a time. Snapshots are copied under their own
-mutexes before the UI reads them.
+Bambuddy status and camera snapshots, and Systems jobs. One queue and
+per-service busy flags prevent those requests from overlapping. A second core-0
+worker handles update checks and OTA installation. Both workers share a network
+mutex so the no-PSRAM device performs only one network operation at a time.
+Snapshots are copied under their own mutexes before the UI reads them.
 
 Detail pages use foreground-only refreshes: Weather refreshes Weather, Flights
 refreshes Flights, Bambuddy refreshes Bambuddy, and Systems refreshes Systems.
@@ -52,10 +52,10 @@ The tested board has no PSRAM. The firmware therefore:
 ## Storage
 
 The SD card holds JSON configuration, connection secrets, themes, icons, and
-temporary provider caches. The on-demand aircraft photo uses one bounded JPEG
-file that is replaced by the next successful lookup. All SD access shares one
-FreeRTOS mutex. Firmware defaults allow the interface to boot when the card or
-a file is missing.
+temporary provider caches. On-demand aircraft and Bambuddy camera images each
+use one bounded JPEG file that is replaced by the next successful lookup. All
+SD access shares one FreeRTOS mutex. Firmware defaults allow the interface to
+boot when the card or a file is missing.
 
 NVS stores touch calibration, orientation-related state, tile visibility
 overrides, and the generated bootstrap portal password.

@@ -181,6 +181,7 @@ enum class NetworkJob : uint8_t {
   flights,
   aircraftPhoto,
   bambuddy,
+  bambuddyCamera,
   systems,
 };
 
@@ -189,6 +190,7 @@ WeatherData weatherData;
 FlightsData flightsData;
 AircraftPhotoData aircraftPhotoData;
 BambuddyData bambuddyData;
+BambuddyCameraData bambuddyCameraData;
 SystemsData systemsData;
 QueueHandle_t jobQueue = nullptr;
 SemaphoreHandle_t dataMutex = nullptr;
@@ -198,6 +200,7 @@ bool weatherBusy = false;
 bool flightsBusy = false;
 bool aircraftPhotoBusy = false;
 bool bambuddyBusy = false;
+bool bambuddyCameraBusy = false;
 bool systemsBusy = false;
 char cachedLocationSearch[101] = {};
 char cachedLocationName[65] = {};
@@ -285,6 +288,30 @@ class LimitedWriteStream : public Stream {
   size_t limit_;
   size_t written_ = 0;
   bool exceeded_ = false;
+};
+
+class ResolvedHostWiFiClient : public WiFiClient {
+ public:
+  using WiFiClient::connect;
+
+  void setResolvedAddress(const IPAddress& address) {
+    address_ = address;
+    hasAddress_ = true;
+  }
+
+  int connect(
+      const char* host,
+      uint16_t port,
+      int32_t timeoutMilliseconds) override {
+    if (hasAddress_) {
+      return WiFiClient::connect(address_, port, timeoutMilliseconds);
+    }
+    return WiFiClient::connect(host, port, timeoutMilliseconds);
+  }
+
+ private:
+  IPAddress address_;
+  bool hasAddress_ = false;
 };
 
 class LimitedReadStream : public Stream {
@@ -1136,6 +1163,7 @@ void fetchFlights(const LiveDataSettings& settings) {
         strcmp(settings.flightsProvider, "flightradar24") == 0;
     const bool useAdsbLol =
         strcmp(settings.flightsProvider, "adsb.lol") == 0;
+    String adsbLolUrl;
     if (isFlightradar) {
       const float latitudeDelta = settings.flightsRadiusKm / 111.32f;
       const float longitudeDelta =
@@ -1152,17 +1180,26 @@ void fetchFlights(const LiveDataSettings& settings) {
     } else {
       rootCertificate = useAdsbLol ? kIsrgRootX1 : kGtsRootR4;
       const float radiusNm = min(settings.flightsRadiusKm / 1.852f, 250.0f);
-      url = String(
-                useAdsbLol
-                    ? "http://api.adsb.lol/v2/point/"
-                    : "https://api.airplanes.live/v2/point/") +
-            String(result.centreLatitude, 5) + "/" +
-            String(result.centreLongitude, 5) + "/" +
-            String(radiusNm, 1);
+      const String point =
+          String(result.centreLatitude, 5) + "/" +
+          String(result.centreLongitude, 5) + "/" +
+          String(radiusNm, 1);
+      adsbLolUrl = "http://api.adsb.lol/v2/point/" + point;
+      url = useAdsbLol
+                ? adsbLolUrl
+                : "https://api.airplanes.live/v2/point/" + point;
     }
 
-    WiFiClient plainClient;
+    ResolvedHostWiFiClient plainClient;
     WiFiClientSecure secureClient;
+    if (!isFlightradar) {
+      IPAddress adsbLolAddress;
+      if (WiFi.hostByName("ingress-system2.adsb.lol", adsbLolAddress) == 1) {
+        plainClient.setResolvedAddress(adsbLolAddress);
+      } else {
+        Serial.println("[FLIGHTS] Could not resolve adsb.lol origin");
+      }
+    }
     if (!useAdsbLol) {
       secureClient.setCACert(rootCertificate);
       secureClient.setHandshakeTimeout(6);
@@ -1186,18 +1223,44 @@ void fetchFlights(const LiveDataSettings& settings) {
             "Bearer " + String(settings.flightsApiToken));
         request.addHeader("Accept-Version", "v1");
       }
-      const int status = request.GET();
+      int status = request.GET();
       Serial.printf(
           "[FLIGHTS] HTTP %d length=%d heap=%u\n",
           status,
           request.getSize(),
           ESP.getFreeHeap());
+      if (status < 0 && !isFlightradar && !useAdsbLol) {
+        Serial.printf(
+            "[FLIGHTS] airplanes.live failed: %s; trying adsb.lol\n",
+            HTTPClient::errorToString(status).c_str());
+        request.end();
+        secureClient.stop();
+        if (request.begin(plainClient, adsbLolUrl)) {
+          status = request.GET();
+          Serial.printf(
+              "[FLIGHTS] adsb.lol fallback HTTP %d length=%d heap=%u\n",
+              status,
+              request.getSize(),
+              ESP.getFreeHeap());
+          if (status == HTTP_CODE_OK) {
+            copyText(result.provider, "adsb.lol fallback");
+          }
+        }
+      }
       if (status != HTTP_CODE_OK) {
-        snprintf(
-            result.error,
-            sizeof(result.error),
-            "Aircraft service returned HTTP %d",
-            status);
+        if (status < 0) {
+          snprintf(
+              result.error,
+              sizeof(result.error),
+              "Aircraft connection failed: %s",
+              HTTPClient::errorToString(status).c_str());
+        } else {
+          snprintf(
+              result.error,
+              sizeof(result.error),
+              "Aircraft service returned HTTP %d",
+              status);
+        }
       } else if (request.getSize() > 300000) {
         copyText(result.error, "Aircraft response was too large");
       } else {
@@ -1659,6 +1722,62 @@ void fetchBambuddy(const LiveDataSettings& settings) {
           result.bedTarget =
               document["temperatures"]["bed_target"] | 0.0f;
           result.wifiSignal = document["wifi_signal"] | 0;
+          result.amsExists = document["ams_exists"] | false;
+          const int trayNow = document["tray_now"] | 255;
+          const JsonArrayConst amsUnits =
+              document["ams"].as<JsonArrayConst>();
+          for (const JsonObjectConst amsObject : amsUnits) {
+            if (result.amsUnitCount >= kMaximumBambuddyAmsUnits) {
+              break;
+            }
+            BambuddyAmsUnit& unit =
+                result.amsUnits[result.amsUnitCount++];
+            unit.id = static_cast<uint8_t>(
+                constrain(amsObject["id"] | 0, 0, 255));
+            const int humidity = amsObject["humidity"] | -1;
+            unit.humidity = static_cast<int16_t>(
+                humidity > 0 ? constrain(humidity, 1, 100) : -1);
+            if (!amsObject["temp"].isNull()) {
+              const float temperature = amsObject["temp"].as<float>();
+              if (temperature != 0.0f) {
+                unit.temperature = temperature;
+                unit.hasTemperature = true;
+              }
+            }
+            unit.isHighTemperature = amsObject["is_ams_ht"] | false;
+
+            const JsonArrayConst trays =
+                amsObject["tray"].as<JsonArrayConst>();
+            for (const JsonObjectConst trayObject : trays) {
+              if (unit.trayCount >= kMaximumBambuddyAmsTrays) {
+                break;
+              }
+              BambuddyAmsTray& tray = unit.trays[unit.trayCount++];
+              tray.id = static_cast<uint8_t>(
+                  constrain(trayObject["id"] | 0, 0, 255));
+              copyText(tray.colour, trayObject["tray_color"] | "");
+              copyText(tray.material, trayObject["tray_type"] | "");
+              copyText(tray.name, trayObject["tray_sub_brands"] | "");
+              tray.remainingPercent = static_cast<uint8_t>(
+                  constrain(trayObject["remain"] | 0, 0, 100));
+
+              const int trayState = trayObject["state"] | -1;
+              const bool hasIdentity =
+                  tray.material[0] != '\0' || tray.name[0] != '\0' ||
+                  tray.colour[0] != '\0';
+              tray.exists = trayObject["exists"].isNull()
+                  ? (trayState == 10 || trayState == 11 || hasIdentity)
+                  : (trayObject["exists"] | false);
+              const int globalTrayId =
+                  unit.isHighTemperature
+                      ? 128 + unit.id
+                      : unit.id * 4 + tray.id;
+              tray.loaded =
+                  trayState == 11 || trayNow == globalTrayId;
+            }
+          }
+          result.amsExists =
+              result.amsExists || result.amsUnitCount > 0;
           result.state = LiveDataState::ready;
           result.updatedAt = millis();
         }
@@ -1683,6 +1802,168 @@ void fetchBambuddy(const LiveDataSettings& settings) {
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   bambuddyData = result;
   bambuddyBusy = false;
+  xSemaphoreGive(dataMutex);
+}
+
+void fetchBambuddyCamera(const LiveDataSettings& settings) {
+  BambuddyCameraData result;
+  result.state = LiveDataState::error;
+
+  if (WiFi.status() != WL_CONNECTED) {
+    copyText(result.error, "Wi-Fi is offline");
+  } else if (strlen(settings.bambuddyHost) == 0) {
+    copyText(result.error, "Set the Bambuddy host in the portal");
+  } else if (strlen(settings.bambuddyApiKey) == 0) {
+    copyText(result.error, "Set the Bambuddy read-only key");
+  } else if (strcmp(settings.bambuddyProtocol, "http") != 0) {
+    copyText(result.error, "Bambuddy HTTPS needs a configured CA");
+  } else {
+    String path = settings.bambuddyApiPath;
+    if (path.endsWith("/")) {
+      path.remove(path.length() - 1);
+    }
+    const String baseUrl =
+        "http://" + String(settings.bambuddyHost) + ":" +
+        String(settings.bambuddyPort) + path + "/printers";
+    const String tokenUrl = baseUrl + "/camera/stream-token";
+
+    String streamToken;
+    WiFiClient tokenClient;
+    HTTPClient tokenRequest;
+    tokenRequest.setConnectTimeout(2500);
+    tokenRequest.setTimeout(5000);
+    tokenRequest.useHTTP10(true);
+    if (!tokenRequest.begin(tokenClient, tokenUrl)) {
+      copyText(result.error, "Could not initialize camera authorization");
+    } else {
+      tokenRequest.addHeader("X-API-Key", settings.bambuddyApiKey);
+      const int tokenStatus = tokenRequest.POST("");
+      if (tokenStatus != HTTP_CODE_OK) {
+        snprintf(
+            result.error,
+            sizeof(result.error),
+            "Camera authorization returned HTTP %d",
+            tokenStatus);
+      } else if (tokenRequest.getSize() > 2048) {
+        copyText(result.error, "Camera authorization response was too large");
+      } else {
+        JsonDocument tokenDocument;
+        const DeserializationError tokenError =
+            deserializeJson(tokenDocument, tokenRequest.getStream());
+        if (tokenError) {
+          snprintf(
+              result.error,
+              sizeof(result.error),
+              "Camera authorization JSON: %s",
+              tokenError.c_str());
+        } else {
+          streamToken = String(tokenDocument["token"] | "");
+          if (streamToken.isEmpty()) {
+            copyText(result.error, "Bambuddy did not return a camera token");
+          }
+        }
+      }
+      tokenRequest.end();
+      tokenClient.stop();
+    }
+
+    if (!streamToken.isEmpty()) {
+      const String snapshotUrl =
+          baseUrl + "/" + String(settings.bambuddyPrinterId) +
+          "/camera/snapshot?token=" + urlEncode(streamToken.c_str());
+      WiFiClient imageClient;
+      HTTPClient imageRequest;
+      imageRequest.setConnectTimeout(3000);
+      imageRequest.setTimeout(20000);
+      imageRequest.useHTTP10(true);
+      if (!imageRequest.begin(imageClient, snapshotUrl)) {
+        copyText(result.error, "Could not initialize camera snapshot");
+      } else {
+        const int imageStatus = imageRequest.GET();
+        const int expectedBytes = imageRequest.getSize();
+        if (imageStatus != HTTP_CODE_OK) {
+          snprintf(
+              result.error,
+              sizeof(result.error),
+              "Camera snapshot returned HTTP %d",
+              imageStatus);
+        } else if (expectedBytes > 512 * 1024) {
+          copyText(result.error, "Camera snapshot was too large");
+        } else {
+          ScopedStorageLock storageLock(pdMS_TO_TICKS(20000));
+          constexpr char temporaryPath[] =
+              "/dashboard/bambuddy-camera.tmp";
+          constexpr char imagePath[] =
+              "/dashboard/bambuddy-camera.jpg";
+          if (!storageLock) {
+            copyText(result.error, "SD card is busy");
+          } else {
+            if (SD.exists(temporaryPath)) {
+              SD.remove(temporaryPath);
+            }
+            File output = SD.open(temporaryPath, FILE_WRITE);
+            if (!output) {
+              copyText(result.error, "Could not create the camera image");
+            } else {
+              LimitedWriteStream limitedOutput(output, 512U * 1024U);
+              const int transferResult =
+                  imageRequest.writeToStream(&limitedOutput);
+              const size_t bytesWritten = limitedOutput.written();
+              output.close();
+              if (limitedOutput.exceeded() || transferResult < 0 ||
+                  bytesWritten < 4 ||
+                  (expectedBytes > 0 &&
+                   bytesWritten != static_cast<size_t>(expectedBytes))) {
+                SD.remove(temporaryPath);
+                copyText(
+                    result.error,
+                    "Camera image download was incomplete");
+              } else {
+                File validation = SD.open(temporaryPath, FILE_READ);
+                const bool validJpeg =
+                    validation &&
+                    validation.read() == 0xFF &&
+                    validation.read() == 0xD8 &&
+                    validation.seek(validation.size() - 2) &&
+                    validation.read() == 0xFF &&
+                    validation.read() == 0xD9;
+                validation.close();
+                if (!validJpeg) {
+                  SD.remove(temporaryPath);
+                  copyText(result.error, "Camera did not return a JPEG");
+                } else {
+                  if (SD.exists(imagePath)) {
+                    SD.remove(imagePath);
+                  }
+                  if (!SD.rename(temporaryPath, imagePath)) {
+                    SD.remove(temporaryPath);
+                    copyText(result.error, "Could not save the camera image");
+                  } else {
+                    copyText(result.imagePath, imagePath);
+                    result.state = LiveDataState::ready;
+                  }
+                }
+              }
+            }
+          }
+        }
+        imageRequest.end();
+        imageClient.stop();
+      }
+    }
+  }
+
+  result.updatedAt = millis();
+  if (result.state == LiveDataState::ready) {
+    Serial.printf(
+        "[BAMBUDDY] Camera snapshot saved to %s\n",
+        result.imagePath);
+  } else {
+    Serial.printf("[BAMBUDDY] Camera error: %s\n", result.error);
+  }
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  bambuddyCameraData = result;
+  bambuddyCameraBusy = false;
   xSemaphoreGive(dataMutex);
 }
 
@@ -2462,6 +2743,8 @@ void networkWorker(void*) {
       fetchAircraftPhoto();
     } else if (job == NetworkJob::bambuddy) {
       fetchBambuddy(settings);
+    } else if (job == NetworkJob::bambuddyCamera) {
+      fetchBambuddyCamera(settings);
     } else {
       fetchSystems(settings);
     }
@@ -2486,6 +2769,8 @@ bool queueJob(NetworkJob job) {
     busy = &aircraftPhotoBusy;
   } else if (job == NetworkJob::bambuddy) {
     busy = &bambuddyBusy;
+  } else if (job == NetworkJob::bambuddyCamera) {
+    busy = &bambuddyCameraBusy;
   } else {
     busy = &systemsBusy;
   }
@@ -2502,6 +2787,8 @@ bool queueJob(NetworkJob job) {
     aircraftPhotoData.state = LiveDataState::loading;
   } else if (job == NetworkJob::bambuddy) {
     bambuddyData.state = LiveDataState::loading;
+  } else if (job == NetworkJob::bambuddyCamera) {
+    bambuddyCameraData.state = LiveDataState::loading;
   } else {
     systemsData.state = LiveDataState::loading;
   }
@@ -2600,6 +2887,10 @@ bool liveDataRequestBambuddy() {
   return queueJob(NetworkJob::bambuddy);
 }
 
+bool liveDataRequestBambuddyCamera() {
+  return queueJob(NetworkJob::bambuddyCamera);
+}
+
 bool liveDataRequestSystems() {
   return queueJob(NetworkJob::systems);
 }
@@ -2644,6 +2935,17 @@ BambuddyData liveDataBambuddySnapshot() {
   BambuddyData snapshot;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
   snapshot = bambuddyData;
+  xSemaphoreGive(dataMutex);
+  return snapshot;
+}
+
+BambuddyCameraData liveDataBambuddyCameraSnapshot() {
+  BambuddyCameraData snapshot;
+  if (dataMutex == nullptr) {
+    return snapshot;
+  }
+  xSemaphoreTake(dataMutex, portMAX_DELAY);
+  snapshot = bambuddyCameraData;
   xSemaphoreGive(dataMutex);
   return snapshot;
 }

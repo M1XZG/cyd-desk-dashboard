@@ -55,6 +55,10 @@ Configure `host`, `port`, `api_base_path`, and `printer_id`. The current
 firmware supports HTTP on a trusted LAN; HTTPS is reserved for a future release
 with configurable certificate authorities. The default API path is `/api/v1`.
 
+The read-only key is also used to request Bambuddy's short-lived camera token.
+No printer-control permission is required. AMS information comes from the
+normal printer-status response and needs no extra setting.
+
 ### Systems monitors
 
 Each object in `services.systems.monitors` supports:

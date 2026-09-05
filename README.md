@@ -17,7 +17,7 @@ artwork stored on a microSD card.
 - Live weather from Open-Meteo, with MET Norway and sunrise-sunset.org fallbacks
 - Standalone nearby-aircraft radar using airplanes.live, adsb.lol, or the
   official Flightradar24 API
-- Read-only Bambuddy printer monitoring
+- Read-only Bambuddy printer, AMS filament, and on-demand camera monitoring
 - Device, internet, HTTP endpoint, and TCP port health checks
 - Sunday-first monthly calendar with previous and next month navigation
 - Password-protected first-run Wi-Fi setup access point

@@ -72,12 +72,35 @@ Arduino ESP32 2.0.17 cannot currently validate that chain without consuming
 most of the no-PSRAM board's largest free heap block. Firmware `v1.1.5` uses
 the providers' direct HTTP endpoints for bounded public aircraft and weather
 data; neither endpoint receives credentials. Aircraft-cache parsing yields to
-the scheduler so a large response cannot starve the Core 0 watchdog.
+the scheduler so a large response cannot starve the Core 0 watchdog. If the
+default `airplanes.live` TLS connection fails before an HTTP response arrives,
+the firmware automatically retries the compatible `adsb.lol` HTTP endpoint.
+The `adsb.lol` connection resolves its canonical origin separately to avoid an
+ESP32 DNS-client failure with the provider's public CNAME response.
 
 ## Bambuddy is unavailable
 
 Check host, port, printer ID, API base path, and the read-only key. The device
 must be able to reach the Bambuddy host from its Wi-Fi network.
+
+## AMS information is missing
+
+Confirm Bambuddy shows the AMS and its slots for the selected printer. The
+dashboard reads `ams`, `ams_exists`, and `tray_now` from the normal status
+response. Empty or unidentified third-party spools may appear as an unknown
+spool when the printer reports presence without RFID details.
+
+## The Bambuddy camera does not load
+
+Confirm the printer camera works in Bambuddy itself. The dashboard uses the
+read-only key to request a short-lived camera token, then downloads one JPEG
+snapshot. HTTP 401 or 403 means the key cannot use Bambuddy's camera-view
+route. HTTP 503 normally means Bambuddy could not capture a frame from the
+printer.
+
+The snapshot requires a mounted SD card, must be a baseline JPEG, and cannot
+exceed 512 KB. The previous image is replaced only after a complete,
+JPEG-validated download.
 
 ## A Systems monitor is missing
 

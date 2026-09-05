@@ -11,6 +11,8 @@ enum class LiveDataState : uint8_t {
 };
 
 constexpr size_t kMaximumSystemMonitors = 4;
+constexpr size_t kMaximumBambuddyAmsUnits = 4;
+constexpr size_t kMaximumBambuddyAmsTrays = 4;
 
 struct SystemMonitorSettings {
   char name[25] = {};
@@ -69,6 +71,26 @@ struct WeatherData {
   uint32_t updatedAt = 0;
 };
 
+struct BambuddyAmsTray {
+  char colour[9] = {};
+  char material[17] = {};
+  char name[33] = {};
+  uint8_t id = 0;
+  uint8_t remainingPercent = 0;
+  bool exists = false;
+  bool loaded = false;
+};
+
+struct BambuddyAmsUnit {
+  BambuddyAmsTray trays[kMaximumBambuddyAmsTrays];
+  int16_t humidity = -1;
+  float temperature = 0;
+  uint8_t id = 0;
+  uint8_t trayCount = 0;
+  bool hasTemperature = false;
+  bool isHighTemperature = false;
+};
+
 struct BambuddyData {
   LiveDataState state = LiveDataState::idle;
   char error[97] = {};
@@ -85,6 +107,16 @@ struct BambuddyData {
   float bedTemperature = 0;
   float bedTarget = 0;
   int wifiSignal = 0;
+  BambuddyAmsUnit amsUnits[kMaximumBambuddyAmsUnits];
+  uint8_t amsUnitCount = 0;
+  bool amsExists = false;
+  uint32_t updatedAt = 0;
+};
+
+struct BambuddyCameraData {
+  LiveDataState state = LiveDataState::idle;
+  char imagePath[49] = {};
+  char error[97] = {};
   uint32_t updatedAt = 0;
 };
 
@@ -160,9 +192,11 @@ bool liveDataRequestWeather();
 bool liveDataRequestFlights();
 bool liveDataRequestAircraftPhoto(const char* aircraftHex);
 bool liveDataRequestBambuddy();
+bool liveDataRequestBambuddyCamera();
 bool liveDataRequestSystems();
 WeatherData liveDataWeatherSnapshot();
 FlightsData liveDataFlightsSnapshot();
 AircraftPhotoData liveDataAircraftPhotoSnapshot();
 BambuddyData liveDataBambuddySnapshot();
+BambuddyCameraData liveDataBambuddyCameraSnapshot();
 SystemsData liveDataSystemsSnapshot();
