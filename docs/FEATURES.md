@@ -97,6 +97,9 @@ Two actions are available in the printer header:
   heading. Assigned Bambuddy inventory spools use the inventory amount derived
   from label weight and recorded usage. Unassigned slots or unavailable
   inventory data fall back to the printer's raw remaining estimate.
+
+![Bambuddy AMS screen showing inventory-based remaining percentages](images/bambuddy-ams-screen.jpg)
+
 - **Camera** requests one current JPEG from Bambuddy and displays it without
   dashboard controls or a status bar. The image is fitted to the 320x240
   display without changing its aspect ratio. Touch anywhere to return to the

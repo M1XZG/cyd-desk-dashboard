@@ -16,6 +16,7 @@ camera metadata, and edited where necessary to hide local names and addresses.
 | `docs/images/aircraft-screen.jpg` | Aircraft details |
 | `docs/images/aircraft-no-photo-screen.jpg` | Aircraft details without an available photograph |
 | `docs/images/bambuddy-screen.jpg` | Bambuddy |
+| `docs/images/bambuddy-ams-screen.jpg` | Bambuddy AMS inventory levels |
 | `docs/images/systems-screen.jpg` | Systems |
 | `docs/images/calendar-screen.jpg` | Calendar |
 | `docs/images/settings-screen.jpg` | On-device Settings |
