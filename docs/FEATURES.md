@@ -168,26 +168,20 @@ opens, alongside the portal address and device memory.
 
 ### Firmware updates
 
-Settings > Firmware shows the installed firmware version and checks the latest
-stable GitHub release on demand. When a newer release is available, the device
-offers a two-tap confirmed installation. When the installed release is already
-current, the same screen can reinstall it.
+Settings > Firmware shows the installed firmware version and the authenticated
+browser-portal address. Update discovery and downloads run in the browser
+because GitHub's current TLS chain cannot be handled consistently alongside
+the display and network services on the original no-PSRAM CYD.
 
-The firmware binary streams directly into the inactive OTA partition. GitHub's
-certificate-validated Releases API supplies the release version, exact byte
-count, download URL, and SHA-256 digest. The separately downloaded binary must
-match that authenticated size and digest before the inactive partition is
-activated. A failed, interrupted, or corrupt download leaves the running
-firmware selected. Configuration, touch calibration, and SD-card files are not
-part of the OTA image. After reboot, the ESP32 confirms the new image only
-after display, storage, configuration, and background services finish starting.
-The bootloader can roll back if startup fails before that point.
-
-If the no-PSRAM ESP32 cannot complete GitHub HTTPS, the authenticated browser
-portal provides a browser-assisted path. The browser obtains the latest release
-metadata and SHA-256 digest from GitHub, downloads the official binary, verifies
-it with Web Crypto, and streams it over the LAN. The ESP32 calculates SHA-256
-again while writing the inactive OTA partition and rejects any mismatch.
+The browser obtains the latest stable release metadata and SHA-256 digest from
+GitHub, downloads the official binary, verifies it locally, and streams it over
+the LAN. The ESP32 calculates SHA-256 again while writing the inactive OTA
+partition and rejects any mismatch. A failed, interrupted, or corrupt upload
+leaves the running firmware selected. Configuration, touch calibration, and
+SD-card files are not part of the OTA image. After reboot, the ESP32 confirms
+the new image only after display, storage, configuration, and background
+services finish starting. The bootloader can roll back if startup fails before
+that point.
 
 ![Installed firmware and current GitHub release on the device](images/firmware-screen.jpg)
 

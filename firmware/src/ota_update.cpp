@@ -17,12 +17,19 @@ constexpr char kLatestReleaseApiUrl[] =
     "https://api.github.com/repos/M1XZG/cyd-desk-dashboard/releases/latest";
 constexpr char kFirmwareAssetUrlPrefix[] =
     "https://github.com/M1XZG/cyd-desk-dashboard/releases/download/";
-constexpr size_t kMaximumReleaseResponseBytes = 128U * 1024U;
+constexpr char kReleaseAssetsUrlPrefix[] =
+    "https://release-assets.githubusercontent.com/";
+constexpr size_t kReleasePrefixBytes = 2048;
+constexpr size_t kMaximumManifestResponseBytes = 1024;
 constexpr uint32_t kNetworkLockTimeoutMilliseconds = 15000;
 constexpr uint32_t kDownloadStallTimeoutMilliseconds = 30000;
 constexpr uint32_t kGithubConnectTimeoutMilliseconds = 20000;
 constexpr uint32_t kGithubRequestTimeoutMilliseconds = 30000;
 constexpr uint32_t kGithubHandshakeTimeoutSeconds = 20;
+constexpr uint8_t kGithubManifestAttempts = 3;
+constexpr uint32_t kGithubRetryDelayMilliseconds = 750;
+constexpr uint32_t kMinimumGithubTlsBlockBytes = 49000;
+constexpr uint32_t kGithubTlsHeapWaitMilliseconds = 30000;
 
 constexpr char kGitHubCaBundle[] = R"pem(
 -----BEGIN CERTIFICATE-----
@@ -261,6 +268,8 @@ uint32_t browserUploadExpectedBytes = 0;
 uint32_t browserUploadWrittenBytes = 0;
 char browserUploadExpectedSha256[65] = {};
 mbedtls_sha256_context browserUploadShaContext;
+char releasePrefixBuffer[kReleasePrefixBytes + 1] = {};
+char manifestResponseBuffer[kMaximumManifestResponseBytes + 1] = {};
 
 class ScopedNetworkLock {
  public:
@@ -382,26 +391,75 @@ void configureRequest(HTTPClient& request) {
   request.useHTTP10(true);
 }
 
-bool fetchManifest(char* error, size_t errorSize) {
-  if (WiFi.status() != WL_CONNECTED) {
-    strlcpy(error, "Wi-Fi is not connected", errorSize);
+bool waitForGithubTlsHeap(char* error, size_t errorSize) {
+  const uint32_t startedAt = millis();
+  while (ESP.getMaxAllocHeap() < kMinimumGithubTlsBlockBytes &&
+         millis() - startedAt < kGithubTlsHeapWaitMilliseconds) {
+    delay(250);
+  }
+  const uint32_t largestBlock = ESP.getMaxAllocHeap();
+  if (largestBlock < kMinimumGithubTlsBlockBytes) {
+    snprintf(
+        error,
+        errorSize,
+        "Not enough contiguous memory for GitHub HTTPS (%u bytes)",
+        largestBlock);
     return false;
   }
-  if (!ensureClock(error, errorSize)) {
+  return true;
+}
+
+bool readHttpBodyExact(
+    HTTPClient& request,
+    size_t expectedBytes,
+    char* response,
+    size_t responseCapacity,
+    char* error,
+    size_t errorSize) {
+  if (expectedBytes + 1 > responseCapacity) {
+    strlcpy(error, "The HTTPS response exceeds its buffer", errorSize);
     return false;
   }
 
-  ScopedNetworkLock networkLock;
-  if (!networkLock) {
-    strlcpy(error, "Another network request is still running", errorSize);
+  WiFiClient* stream = request.getStreamPtr();
+  uint8_t buffer[512];
+  size_t total = 0;
+  uint32_t lastDataAt = millis();
+  while (total < expectedBytes) {
+    const size_t available = stream->available();
+    if (available == 0) {
+      if (!request.connected() ||
+          millis() - lastDataAt >= kDownloadStallTimeoutMilliseconds) {
+        strlcpy(error, "The HTTPS response ended before completion", errorSize);
+        return false;
+      }
+      delay(10);
+      continue;
+    }
+    const size_t toRead =
+        min(sizeof(buffer), min(available, expectedBytes - total));
+    const int count = stream->read(buffer, toRead);
+    if (count <= 0) {
+      delay(1);
+      continue;
+    }
+    memcpy(response + total, buffer, static_cast<size_t>(count));
+    total += static_cast<size_t>(count);
+    lastDataAt = millis();
+    delay(1);
+  }
+  response[total] = '\0';
+  return true;
+}
+
+bool fetchLatestVersion(char* version, size_t versionSize, char* error, size_t errorSize) {
+  if (!waitForGithubTlsHeap(error, errorSize)) {
     return false;
   }
-
   WiFiClientSecure client;
-  // Arduino ESP32 2.0.x can fail to build GitHub's cross-signed ECC chain.
-  // Trust the long-lived GitHub API issuing CA directly instead.
   client.setCACert(kGithubIssuer);
   client.setHandshakeTimeout(kGithubHandshakeTimeoutSeconds);
+  client.setTimeout(kGithubRequestTimeoutMilliseconds);
   Serial.printf(
       "[OTA] API TLS heap=%u largest=%u\n",
       ESP.getFreeHeap(),
@@ -417,8 +475,9 @@ bool fetchManifest(char* error, size_t errorSize) {
       "CYD-Desk-Dashboard/" + String(kFirmwareVersion));
   request.addHeader("Accept", "application/vnd.github+json");
   request.addHeader("X-GitHub-Api-Version", "2022-11-28");
+  request.addHeader("Range", "bytes=0-2047");
   const int httpStatus = request.GET();
-  if (httpStatus != HTTP_CODE_OK) {
+  if (httpStatus != HTTP_CODE_PARTIAL_CONTENT) {
     if (httpStatus < 0) {
       snprintf(
           error,
@@ -426,73 +485,200 @@ bool fetchManifest(char* error, size_t errorSize) {
           "Could not establish GitHub HTTPS connection (%d)",
           httpStatus);
     } else {
-      snprintf(error, errorSize, "GitHub API returned HTTP %d", httpStatus);
+      snprintf(
+          error,
+          errorSize,
+          "GitHub API range request returned HTTP %d",
+          httpStatus);
     }
     request.end();
     return false;
   }
   const int responseSize = request.getSize();
-  if (responseSize > static_cast<int>(kMaximumReleaseResponseBytes)) {
-    strlcpy(error, "The GitHub release response is too large", errorSize);
+  if (responseSize <= 0 ||
+      responseSize > static_cast<int>(kReleasePrefixBytes)) {
+    strlcpy(error, "The GitHub release prefix has an invalid size", errorSize);
     request.end();
     return false;
   }
+  releasePrefixBuffer[0] = '\0';
+  const bool responseComplete =
+      readHttpBodyExact(
+          request,
+          static_cast<size_t>(responseSize),
+          releasePrefixBuffer,
+          sizeof(releasePrefixBuffer),
+          error,
+          errorSize);
+  request.end();
+  if (!responseComplete) {
+    return false;
+  }
 
-  JsonDocument filter;
-  filter["tag_name"] = true;
-  JsonObject assetFilter = filter["assets"].add<JsonObject>();
-  assetFilter["name"] = true;
-  assetFilter["size"] = true;
-  assetFilter["digest"] = true;
-  assetFilter["browser_download_url"] = true;
+  const char* keyAt = strstr(releasePrefixBuffer, "\"tag_name\"");
+  const char* colonAt = keyAt == nullptr ? nullptr : strchr(keyAt + 10, ':');
+  const char* valueStart =
+      colonAt == nullptr ? nullptr : strchr(colonAt + 1, '"');
+  const char* valueEnd =
+      valueStart == nullptr ? nullptr : strchr(valueStart + 1, '"');
+  if (valueStart == nullptr || valueEnd <= valueStart + 1) {
+    strlcpy(error, "The GitHub release prefix has no version", errorSize);
+    return false;
+  }
+  const size_t releaseVersionLength =
+      static_cast<size_t>(valueEnd - valueStart - 1);
+  if (releaseVersionLength >= versionSize) {
+    strlcpy(error, "The GitHub release version is invalid", errorSize);
+    return false;
+  }
+  memcpy(version, valueStart + 1, releaseVersionLength);
+  version[releaseVersionLength] = '\0';
+  if (!validReleaseVersion(version)) {
+    strlcpy(error, "The GitHub release version is invalid", errorSize);
+    return false;
+  }
+  return true;
+}
+
+bool fetchCompactManifest(
+    const char* version,
+    char* error,
+    size_t errorSize) {
+  if (!waitForGithubTlsHeap(error, errorSize)) {
+    return false;
+  }
+
+  const String manifestUrl =
+      String(kFirmwareAssetUrlPrefix) + version + "/ota-manifest.json";
+  WiFiClientSecure redirectClient;
+  redirectClient.setCACert(kGithubIssuer);
+  redirectClient.setHandshakeTimeout(kGithubHandshakeTimeoutSeconds);
+  redirectClient.setTimeout(kGithubRequestTimeoutMilliseconds);
+  HTTPClient redirectRequest;
+  configureRequest(redirectRequest);
+  const char* redirectHeaders[] = {"Location"};
+  redirectRequest.collectHeaders(redirectHeaders, 1);
+  if (!redirectRequest.begin(redirectClient, manifestUrl)) {
+    strlcpy(error, "Could not initialize the release manifest request", errorSize);
+    return false;
+  }
+  redirectRequest.addHeader(
+      "User-Agent",
+      "CYD-Desk-Dashboard/" + String(kFirmwareVersion));
+  const int redirectStatus = redirectRequest.GET();
+  if (redirectStatus != HTTP_CODE_FOUND) {
+    if (redirectStatus < 0) {
+      snprintf(
+          error,
+          errorSize,
+          "Could not establish manifest HTTPS connection (%d)",
+          redirectStatus);
+    } else {
+      snprintf(
+          error,
+          errorSize,
+          "Release manifest returned HTTP %d",
+          redirectStatus);
+    }
+    redirectRequest.end();
+    return false;
+  }
+  const String assetUrl = redirectRequest.header("Location");
+  redirectRequest.end();
+  if (!assetUrl.startsWith(kReleaseAssetsUrlPrefix)) {
+    strlcpy(error, "The release manifest redirect is invalid", errorSize);
+    return false;
+  }
+
+  if (!waitForGithubTlsHeap(error, errorSize)) {
+    return false;
+  }
+  WiFiClientSecure assetClient;
+  assetClient.setCACert(kReleaseAssetsIssuer);
+  assetClient.setHandshakeTimeout(kGithubHandshakeTimeoutSeconds);
+  assetClient.setTimeout(kGithubRequestTimeoutMilliseconds);
+  HTTPClient assetRequest;
+  configureRequest(assetRequest);
+  if (!assetRequest.begin(assetClient, assetUrl)) {
+    strlcpy(error, "Could not initialize the manifest download", errorSize);
+    return false;
+  }
+  assetRequest.addHeader(
+      "User-Agent",
+      "CYD-Desk-Dashboard/" + String(kFirmwareVersion));
+  const int assetStatus = assetRequest.GET();
+  if (assetStatus != HTTP_CODE_OK) {
+    if (assetStatus < 0) {
+      snprintf(
+          error,
+          errorSize,
+          "Could not download the release manifest (%d)",
+          assetStatus);
+    } else {
+      snprintf(
+          error,
+          errorSize,
+          "Manifest download returned HTTP %d",
+          assetStatus);
+    }
+    assetRequest.end();
+    return false;
+  }
+  const int responseSize = assetRequest.getSize();
+  if (responseSize <= 0 ||
+      responseSize > static_cast<int>(kMaximumManifestResponseBytes)) {
+    strlcpy(error, "The release manifest has an invalid size", errorSize);
+    assetRequest.end();
+    return false;
+  }
+  manifestResponseBuffer[0] = '\0';
+  const bool responseComplete =
+      readHttpBodyExact(
+          assetRequest,
+          static_cast<size_t>(responseSize),
+          manifestResponseBuffer,
+          sizeof(manifestResponseBuffer),
+          error,
+          errorSize);
+  assetRequest.end();
+  if (!responseComplete) {
+    return false;
+  }
+
   JsonDocument document;
   const DeserializationError jsonError =
-      deserializeJson(
-          document,
-          request.getStream(),
-          DeserializationOption::Filter(filter));
-  request.end();
-  if (jsonError && jsonError != DeserializationError::IncompleteInput) {
-    snprintf(error, errorSize, "GitHub release JSON: %s", jsonError.c_str());
+      deserializeJson(document, manifestResponseBuffer);
+  if (jsonError) {
+    snprintf(error, errorSize, "Release manifest JSON: %s", jsonError.c_str());
+    return false;
+  }
+  const char* manifestVersion = document["version"] | "";
+  const char* assetName = document["firmware"]["asset"] | "";
+  const char* sha256 = document["firmware"]["sha256"] | "";
+  const uint32_t size = document["firmware"]["size"] | 0;
+  if ((document["schema"] | 0) != 1 ||
+      strcmp(manifestVersion, version) != 0 ||
+      strcmp(assetName, "firmware.bin") != 0 ||
+      !validSha256(sha256) ||
+      size == 0 ||
+      size > ESP.getFreeSketchSpace()) {
+    strlcpy(error, "The release manifest metadata is invalid", errorSize);
     return false;
   }
 
-  const char* version = document["tag_name"] | "";
-  JsonObjectConst firmwareAsset;
-  for (JsonObjectConst asset : document["assets"].as<JsonArrayConst>()) {
-    if (strcmp(asset["name"] | "", "firmware.bin") == 0) {
-      firmwareAsset = asset;
-      break;
-    }
-  }
-  const char* digest = firmwareAsset["digest"] | "";
-  const char* firmwareUrl = firmwareAsset["browser_download_url"] | "";
-  const uint32_t size = firmwareAsset["size"] | 0;
-  const char* sha256 =
-      strncmp(digest, "sha256:", 7) == 0 ? digest + 7 : "";
-  if (!validReleaseVersion(version) || !validSha256(sha256) ||
-      strlen(firmwareUrl) == 0 ||
-      strlen(firmwareUrl) >= sizeof(manifest.firmwareUrl) ||
-      strncmp(
-          firmwareUrl,
-          kFirmwareAssetUrlPrefix,
-          strlen(kFirmwareAssetUrlPrefix)) != 0 ||
-      size == 0 || size > ESP.getFreeSketchSpace()) {
-    strlcpy(
-        error,
-        jsonError == DeserializationError::IncompleteInput
-            ? "The GitHub release response ended before the firmware metadata"
-            : "The GitHub firmware asset metadata is invalid",
-        errorSize);
-    return false;
-  }
-
-  strlcpy(manifest.version, version, sizeof(manifest.version));
-  strlcpy(manifest.sha256, sha256, sizeof(manifest.sha256));
-  strlcpy(
+  const int firmwareUrlLength = snprintf(
       manifest.firmwareUrl,
-      firmwareUrl,
-      sizeof(manifest.firmwareUrl));
+      sizeof(manifest.firmwareUrl),
+      "%s%s/firmware.bin",
+      kFirmwareAssetUrlPrefix,
+      version);
+  if (firmwareUrlLength <= 0 ||
+      firmwareUrlLength >= static_cast<int>(sizeof(manifest.firmwareUrl))) {
+    strlcpy(error, "The firmware download URL is too long", errorSize);
+    return false;
+  }
+  strlcpy(manifest.version, manifestVersion, sizeof(manifest.version));
+  strlcpy(manifest.sha256, sha256, sizeof(manifest.sha256));
   manifest.size = size;
   manifest.valid = true;
 
@@ -508,6 +694,47 @@ bool fetchManifest(char* error, size_t errorSize) {
   status.error[0] = '\0';
   xSemaphoreGive(statusMutex);
   return true;
+}
+
+bool fetchManifestOnce(char* error, size_t errorSize) {
+  if (WiFi.status() != WL_CONNECTED) {
+    strlcpy(error, "Wi-Fi is not connected", errorSize);
+    return false;
+  }
+  if (!ensureClock(error, errorSize)) {
+    return false;
+  }
+
+  ScopedNetworkLock networkLock;
+  if (!networkLock) {
+    strlcpy(error, "Another network request is still running", errorSize);
+    return false;
+  }
+
+  char version[25] = {};
+  return fetchLatestVersion(version, sizeof(version), error, errorSize) &&
+         fetchCompactManifest(version, error, errorSize);
+}
+
+bool fetchManifest(char* error, size_t errorSize) {
+  for (uint8_t attempt = 1; attempt <= kGithubManifestAttempts; ++attempt) {
+    if (fetchManifestOnce(error, errorSize)) {
+      return true;
+    }
+    if (strncmp(
+            error,
+            "Could not establish GitHub HTTPS connection",
+            strlen("Could not establish GitHub HTTPS connection")) != 0 ||
+        attempt == kGithubManifestAttempts) {
+      return false;
+    }
+    Serial.printf(
+        "[OTA] GitHub HTTPS attempt %u/%u failed; retrying\n",
+        attempt,
+        kGithubManifestAttempts);
+    delay(kGithubRetryDelayMilliseconds);
+  }
+  return false;
 }
 
 void bytesToHex(const uint8_t* bytes, size_t length, char* output) {

@@ -1549,9 +1549,8 @@ void formatOtaStatus(
     snprintf(
         text,
         textSize,
-        "Installed: %s\nLatest: %s\nCheck GitHub Releases when ready.",
-        ota.installedVersion,
-        latest);
+        "Installed: %s\nLatest: use web portal\nBrowser verification avoids ESP32 TLS errors.",
+        ota.installedVersion);
   }
 }
 
@@ -1863,32 +1862,14 @@ void handlePortalRoot() {
     html += F("<p class=\"hint\">The installed release is current. "
               "You can reinstall it if needed.</p>");
   }
-  html += F("<form method=\"post\" action=\"/ota/check\">"
-            "<input type=\"hidden\" name=\"csrf\" value=\"");
-  html += portalCsrfToken;
-  html += F("\"><button type=\"submit\">Check for updates</button></form>");
-  if (ota.canInstall &&
-      (ota.state == OtaState::updateAvailable ||
-       ota.state == OtaState::upToDate)) {
-    html += F("<form method=\"post\" action=\"/ota/install\" "
-              "onsubmit=\"return confirm('Install firmware ");
-    html += htmlEscape(ota.latestVersion);
-    html += F(" and restart the dashboard?');\" style=\"margin-top:10px\">"
-              "<input type=\"hidden\" name=\"csrf\" value=\"");
-    html += portalCsrfToken;
-    html += F("\"><button class=\"danger\" type=\"submit\">");
-    html += ota.reinstall ? "Reinstall current release" : "Install update";
-    html += F("</button></form>");
-  }
   html += F(
       "<hr style=\"border:0;border-top:1px solid #475569;margin:16px 0\">"
-      "<h3>Browser-assisted update</h3>"
-      "<p class=\"hint\">Use this if the dashboard cannot complete GitHub "
-      "HTTPS itself. Your browser checks the latest release and its SHA-256, "
+      "<h3>Firmware update</h3>"
+      "<p class=\"hint\">Your browser checks the latest release and its SHA-256, "
       "downloads the official firmware, then uploads it over this local "
       "connection.</p>"
       "<button type=\"button\" id=\"prepare-browser-update\">"
-      "Prepare browser update</button>"
+      "Check GitHub for updates</button>"
       "<p class=\"hint\" id=\"browser-update-status\"></p>"
       "<p><a id=\"firmware-download\" class=\"nav\" hidden>"
       "Download firmware</a></p>"
@@ -2390,7 +2371,8 @@ void sendOtaWaitPage(const char* title, const char* message) {
       "if(s.state==='ready_to_restart'){setTimeout(function(){location.replace('/');},20000);return;}"
       "if(s.state!=='checking'&&s.state!=='downloading'){location.replace('/');return;}"
       "}catch(e){document.getElementById('status').textContent="
-      "'Waiting for the dashboard...';}setTimeout(poll,1000);}poll();"
+      "'Waiting for the dashboard...';}setTimeout(poll,1000);}"
+      "setTimeout(poll,27000);"
       "</script></body></html>");
   settingsServer.send(202, "text/html; charset=utf-8", html);
 }
@@ -3645,8 +3627,7 @@ void showSystemSettings() {
 
 void firmwareCheckEvent(lv_event_t* event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    firmwareInstallArmed = false;
-    otaRequestCheck();
+    showFirmwareSettings();
   }
 }
 
@@ -3748,43 +3729,19 @@ void showFirmwareSettings() {
   lv_bar_set_range(firmwareProgressBar, 0, 100);
   lv_obj_add_flag(firmwareProgressBar, LV_OBJ_FLAG_HIDDEN);
 
-  firmwareCheckButton = lv_btn_create(screen);
-  lv_obj_set_size(firmwareCheckButton, 140, 38);
-  lv_obj_set_pos(firmwareCheckButton, 12, 145);
-  lv_obj_add_event_cb(
-      firmwareCheckButton,
-      firmwareCheckEvent,
-      LV_EVENT_CLICKED,
-      nullptr);
-  lv_obj_t* checkLabel = lv_label_create(firmwareCheckButton);
-  lv_label_set_text(checkLabel, "Check for updates");
-  lv_obj_set_style_text_font(checkLabel, &lv_font_montserrat_12, 0);
-  lv_obj_center(checkLabel);
-
-  firmwareInstallButton = lv_btn_create(screen);
-  lv_obj_set_size(firmwareInstallButton, 156, 38);
-  lv_obj_set_pos(firmwareInstallButton, 158, 145);
-  lv_obj_set_style_bg_color(
-      firmwareInstallButton,
-      lv_color_hex(0xB45309),
-      0);
-  lv_obj_add_event_cb(
-      firmwareInstallButton,
-      firmwareInstallEvent,
-      LV_EVENT_CLICKED,
-      nullptr);
-  lv_obj_t* installLabel = lv_label_create(firmwareInstallButton);
-  lv_label_set_text(installLabel, "Install update");
-  lv_obj_set_style_text_font(installLabel, &lv_font_montserrat_12, 0);
-  lv_obj_center(installLabel);
+  firmwareCheckButton = nullptr;
+  firmwareInstallButton = nullptr;
 
   lv_obj_t* note = lv_label_create(screen);
-  lv_label_set_text(
+  lv_label_set_text_fmt(
       note,
-      "Keep power connected during installation.");
+      "Update from the browser portal:\nhttp://%s/",
+      WiFi.status() == WL_CONNECTED
+          ? WiFi.localIP().toString().c_str()
+          : "device-ip");
   lv_obj_set_style_text_font(note, &lv_font_montserrat_10, 0);
   lv_obj_set_style_text_color(note, lv_color_hex(0x94A3B8), 0);
-  lv_obj_set_pos(note, 89, 190);
+  lv_obj_set_pos(note, 70, 150);
 
   addSettingsBackButton(screen);
   renderFirmwarePage();

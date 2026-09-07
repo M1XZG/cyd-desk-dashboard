@@ -8,31 +8,24 @@ microSD card are preserved.
 OTA replaces only `firmware.bin`. A release that changes the bootloader,
 partition table, or `boot_app0.bin` needs a full USB flash.
 
-## Install an update from the touchscreen
+## Open the update page from the touchscreen
 
-1. Keep the dashboard connected to stable power and Wi-Fi.
-2. Open **Settings > Firmware**.
-3. Tap **Check for updates**.
-4. Compare the installed version with the latest stable release.
-5. Tap the install control and confirm the update.
-6. Leave the device powered while it downloads, verifies, and writes the image.
-7. Wait for the dashboard to restart and return to the Home screen.
-8. Open **Settings > Firmware** again and check that the installed version has
-   changed.
+Keep the dashboard connected to stable power and Wi-Fi, then open
+**Settings > Firmware**. The screen shows the installed version and the local
+browser-portal address. Open that address from a computer or phone on the same
+network to check and install firmware.
 
-When the installed version is already current, the install control becomes
-**Reinstall current release**. This follows the same verification and restart
-process.
-
-![The device reporting that v1.1.3 is current](images/firmware-screen.jpg)
+Direct GitHub checks are not offered on the no-PSRAM touchscreen. GitHub's
+certificate chain and release response can exceed the contiguous memory
+available after the display and network services are running.
 
 ## Install an update from the browser portal
 
-1. Open the dashboard address shown under **Settings > System**, then sign in.
+1. Open the dashboard address shown under **Settings > Firmware**, then sign in.
 2. Expand **Firmware updates**.
-3. Select **Check for updates**.
-4. Review the installed and latest versions.
-5. Select the install or reinstall control and accept the browser confirmation.
+3. Select **Check GitHub for updates**.
+4. Download the linked official `firmware.bin`.
+5. Select the downloaded file under **Verify and install**.
 6. Keep the page open while the progress display advances. Do not remove power.
 7. The dashboard restarts when the verified image has been written. Allow about
    20 seconds for Wi-Fi and the portal to return.
@@ -43,11 +36,9 @@ process.
 The initial `Latest release: not checked` message is normal. No GitHub request
 is made until **Check for updates** is selected.
 
-### Browser-assisted fallback
+Firmware v1.3.1 and later avoid GitHub HTTPS on the ESP32:
 
-Firmware v1.3.1 and later can avoid GitHub HTTPS on the ESP32:
-
-1. Select **Prepare browser update** in the portal's Firmware section.
+1. Select **Check GitHub for updates** in the portal's Firmware section.
 2. Follow the generated link to download the latest official `firmware.bin`.
 3. Select that downloaded file under **Verify and install**.
 4. Leave the portal open while the firmware uploads and the dashboard restarts.
@@ -56,6 +47,38 @@ The browser obtains the release size and SHA-256 digest directly from GitHub.
 It verifies the selected file with Web Crypto before upload. The ESP32 streams
 the upload into the inactive OTA partition, calculates SHA-256 independently,
 and activates it only when the size and digest match.
+
+Firmware v1.3.2 retries transient certificate-verified GitHub connection
+failures before reporting an error. This helps the no-PSRAM board when TLS
+allocation is briefly fragmented by other dashboard work. The GitHub API
+client directly trusts GitHub's currently served E36 issuing CA because the
+older TLS stack cannot reliably build its cross-signed ECC chain. Before
+starting TLS, the OTA worker waits up to 30 seconds for the settings-page
+response to release a 49 KB contiguous heap block. Persistent
+failures still stop after three attempts and leave the installed firmware
+unchanged.
+
+The browser waiting page delays its first status poll for 27 seconds. Polling
+immediately can keep HTTP response buffers allocated while the no-PSRAM board
+is trying to start the larger GitHub TLS handshake.
+
+The secure stream and HTTP request share the same 30-second read timeout, so a
+brief pause within GitHub's filtered release response is not mistaken for the
+end of the JSON document.
+
+The device requests only the first 2 KB of GitHub's authenticated latest-release
+response to obtain the stable tag. It then downloads the release's compact
+`ota-manifest.json` through certificate-verified GitHub redirects. The manifest
+is limited to 1 KB and supplies the firmware size and SHA-256 digest. This
+avoids holding or streaming GitHub's much larger release document.
+
+Both bounded responses are read to their declared length with the same
+stall-aware loop used for firmware downloads. The OTA worker does not rely on
+`HTTPClient::getString()`, which can return early when a secure stream
+temporarily reports no immediately available bytes.
+
+The 2 KB release prefix and 1 KB manifest use fixed startup buffers. They do
+not require contiguous heap allocations after the TLS handshake.
 
 ## What the device verifies
 

@@ -117,27 +117,21 @@ incomplete monitors are skipped and omitted from the device page.
 
 ## Firmware update says not checked
 
-This is the normal state before a manual check. Open **Settings > Firmware** or
-the browser portal's **Firmware updates** section and select **Check for
-updates**.
+This is the normal state before the browser checks GitHub. Open
+**Settings > Firmware**, note the portal address, then open the browser portal's
+**Firmware updates** section and select **Check GitHub for updates**.
 
 ## Firmware update check fails
 
-Confirm Wi-Fi, DNS, internet access, and synchronized time on the Systems page.
-Wait for Weather or Flights activity to finish, then retry. OTA shares the
-device's single TLS network slot with live-data requests because the original
-CYD has no PSRAM.
+Confirm that the phone or computer running the browser has internet access and
+can reach both GitHub and the dashboard's local address. Reload the portal and
+select **Check GitHub for updates** again. The device itself does not connect to
+GitHub during this flow.
 
-An update-check error does not change the installed firmware. If GitHub returns
-HTTP `-1`, restart the dashboard, wait for the clock to appear in the top bar,
-and check again. Firmware v1.3.1 extends GitHub TLS handshakes from eight to
-twenty seconds and reports a failed HTTPS connection without incorrectly
-describing every TLS timeout as a refused connection.
-
-If direct checks remain unreliable, open the browser portal and use
-**Browser-assisted update**. The browser handles GitHub HTTPS and verifies the
-official release digest; the dashboard receives only the validated firmware
-stream and verifies SHA-256 again before activation.
+An update-check error does not change the installed firmware. The browser
+handles GitHub HTTPS and verifies the official release digest; the dashboard
+receives only the selected firmware stream and verifies SHA-256 again before
+activation.
 
 ## Firmware installation fails or stops
 

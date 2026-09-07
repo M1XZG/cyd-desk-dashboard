@@ -92,16 +92,12 @@ then atomically replaces
 
 ### Firmware updates
 
-The firmware section shows the installed version and the newest stable GitHub
-release. **Check for updates** fetches a small release manifest. A newer release
-can then be installed after browser confirmation. If the versions match, the
-same control reinstalls the current release.
-
-The browser-assisted updater avoids GitHub TLS on the ESP32. Select **Prepare
-browser update**, download the release linked by the page, then choose that file
-under **Verify and install**. The browser checks the file against the SHA-256
-digest returned by GitHub before upload, and the ESP32 independently checks the
-same digest while streaming the firmware into the inactive slot.
+The firmware section shows the installed version. Select **Check GitHub for
+updates**, download the release linked by the page, then choose that file under
+**Verify and install**. The browser obtains the newest stable release metadata
+and verifies the file against GitHub's SHA-256 digest before upload. The ESP32
+independently checks the same digest while streaming the firmware into the
+inactive slot.
 
 During installation, the portal reports download progress and waits for the
 dashboard to restart. The firmware size and SHA-256 digest are verified before
@@ -109,9 +105,9 @@ the inactive OTA partition is selected for boot.
 
 ![Firmware update section after installing v1.1.3](images/web-portal-firmware.png)
 
-`Latest release: not checked` is the normal initial state. Select **Check for
-updates** to contact GitHub. Keep the device powered during installation and
-allow about 20 seconds for the portal to return after restart. See
+`Latest release: not checked` is the normal initial state before the browser
+checks GitHub. Keep the device powered during installation and allow about 20
+seconds for the portal to return after restart. See
 [Over-the-air updates](OTA-UPDATES.md) for the complete user and release
 process.
 
