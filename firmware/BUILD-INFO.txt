@@ -1,4 +1,4 @@
-ESP32 dashboard v1.3.2 firmware
+ESP32 dashboard v1.3.3 firmware
 Build date: 2026-09-07
 PlatformIO Core: 6.1.19
 Platform: espressif32 6.12.0
@@ -13,8 +13,8 @@ LVGL 8.4.0
 ArduinoJson 7.4.3
 
 Hardware-tested local application:
-firmware.bin size: 1,680,592 bytes
-firmware.bin SHA-256: 758354d673b7e3d2f9274647f8486c05b64bf90b4439cc2c6b2fddd706c973fb
+firmware.bin size: 1,683,040 bytes
+firmware.bin SHA-256: f2298dde4e1b414219b71f3346e2ae7da4a69c409e745d29e417b1dd001c50b9
 
 Tagged release artifacts are rebuilt by GitHub Actions. Use the SHA256SUMS
 attached to the release rather than this local validation hash for downloads.
@@ -43,6 +43,7 @@ Aircraft response parsing yields to the Core-0 scheduler
 Bambuddy LAN requests complete within the Core-0 watchdog window
 Bambuddy status includes up to four AMS units with four filament slots each
 AMS cards show spool colour, material, sub-brand, remaining level, and loaded state
+Bambuddy assigned inventory weights override raw AMS remain values when available
 Bambuddy camera captures one authenticated, SD-backed JPEG on demand
 The full-screen camera view returns to Bambuddy when touched anywhere
 The portal restart page returns to the dashboard after 15 seconds

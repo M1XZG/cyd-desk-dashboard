@@ -94,7 +94,9 @@ Two actions are available in the printer header:
   material, sub-brand, estimated remaining percentage, and which slot is
   loaded. Multiple AMS units can be selected with the previous and next
   controls. Available AMS temperature and humidity readings appear in the
-  heading.
+  heading. Assigned Bambuddy inventory spools use the inventory amount derived
+  from label weight and recorded usage. Unassigned slots or unavailable
+  inventory data fall back to the printer's raw remaining estimate.
 - **Camera** requests one current JPEG from Bambuddy and displays it without
   dashboard controls or a status bar. The image is fitted to the 320x240
   display without changing its aspect ratio. Touch anywhere to return to the

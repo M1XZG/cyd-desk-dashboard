@@ -1647,6 +1647,100 @@ void fetchWeather(const LiveDataSettings& settings) {
   xSemaphoreGive(dataMutex);
 }
 
+void applyBambuddyInventoryLevels(
+    const LiveDataSettings& settings,
+    BambuddyData& result) {
+  if (result.amsUnitCount == 0) {
+    return;
+  }
+
+  String path = settings.bambuddyApiPath;
+  if (path.endsWith("/")) {
+    path.remove(path.length() - 1);
+  }
+  const String url =
+      "http://" + String(settings.bambuddyHost) + ":" +
+      String(settings.bambuddyPort) + path +
+      "/inventory/assignments?printer_id=" +
+      String(settings.bambuddyPrinterId);
+
+  WiFiClient client;
+  HTTPClient request;
+  request.setConnectTimeout(2000);
+  request.setTimeout(2500);
+  request.useHTTP10(true);
+  if (!request.begin(client, url)) {
+    Serial.println("[BAMBUDDY] Could not initialize inventory request");
+    return;
+  }
+  request.addHeader("X-API-Key", settings.bambuddyApiKey);
+  const int status = request.GET();
+  if (status != HTTP_CODE_OK) {
+    Serial.printf("[BAMBUDDY] Inventory assignments HTTP %d\n", status);
+    request.end();
+    return;
+  }
+  if (request.getSize() > 12000) {
+    Serial.println("[BAMBUDDY] Inventory assignments response too large");
+    request.end();
+    return;
+  }
+
+  JsonDocument document;
+  const DeserializationError jsonError =
+      deserializeJson(document, request.getStream());
+  request.end();
+  if (jsonError) {
+    Serial.printf(
+        "[BAMBUDDY] Inventory assignments JSON: %s\n",
+        jsonError.c_str());
+    return;
+  }
+
+  uint8_t applied = 0;
+  for (const JsonObjectConst assignment : document.as<JsonArrayConst>()) {
+    const int amsId = assignment["ams_id"] | -1;
+    const int trayId = assignment["tray_id"] | -1;
+    const JsonObjectConst spool = assignment["spool"].as<JsonObjectConst>();
+    if (amsId < 0 || trayId < 0 || spool.isNull()) {
+      continue;
+    }
+    const float labelWeight = spool["label_weight"] | 0.0f;
+    const float weightUsed = spool["weight_used"] | 0.0f;
+    if (labelWeight <= 0.0f || weightUsed < 0.0f) {
+      continue;
+    }
+    const uint8_t remainingPercent = static_cast<uint8_t>(
+        lroundf(constrain(
+            (labelWeight - weightUsed) * 100.0f / labelWeight,
+            0.0f,
+            100.0f)));
+
+    for (uint8_t unitIndex = 0;
+         unitIndex < result.amsUnitCount;
+         ++unitIndex) {
+      BambuddyAmsUnit& unit = result.amsUnits[unitIndex];
+      if (unit.id != amsId) {
+        continue;
+      }
+      for (uint8_t trayIndex = 0;
+           trayIndex < unit.trayCount;
+           ++trayIndex) {
+        BambuddyAmsTray& tray = unit.trays[trayIndex];
+        if (tray.id == trayId) {
+          tray.remainingPercent = remainingPercent;
+          ++applied;
+          break;
+        }
+      }
+      break;
+    }
+  }
+  Serial.printf(
+      "[BAMBUDDY] Applied %u inventory-based AMS levels\n",
+      applied);
+}
+
 void fetchBambuddy(const LiveDataSettings& settings) {
   BambuddyData result;
   result.state = LiveDataState::error;
@@ -1786,6 +1880,9 @@ void fetchBambuddy(const LiveDataSettings& settings) {
     }
   }
 
+  if (result.state == LiveDataState::ready) {
+    applyBambuddyInventoryLevels(settings, result);
+  }
   if (result.updatedAt == 0) {
     result.updatedAt = millis();
   }
