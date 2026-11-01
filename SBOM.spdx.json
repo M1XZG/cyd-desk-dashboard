@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "CYD Desk Dashboard firmware SBOM",
-  "documentNamespace": "https://github.com/M1XZG/cyd-desk-dashboard/sbom/spdx-2.3/6221f7bc4b7ccfb44f6e9b1a4a0e16efb41063dfd5d555e5c18b9324c3aa9bd1",
+  "documentNamespace": "https://github.com/M1XZG/cyd-desk-dashboard/sbom/spdx-2.3/ba8d3630f05d857d2889b69a00a0b2510b6e749eb80e8f817ab9adf777316d4e",
   "creationInfo": {
     "created": "2026-08-31T00:00:00Z",
     "creators": [
@@ -99,10 +99,10 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-Pillow-12.3.0",
+      "SPDXID": "SPDXRef-Pillow-13.0.0",
       "name": "Pillow",
-      "versionInfo": "12.3.0",
-      "downloadLocation": "https://pypi.org/project/Pillow/12.3.0/",
+      "versionInfo": "13.0.0",
+      "downloadLocation": "https://pypi.org/project/Pillow/13.0.0/",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -112,15 +112,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:pypi/pillow@12.3.0"
+          "referenceLocator": "pkg:pypi/pillow@13.0.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-platformio-6.1.19",
+      "SPDXID": "SPDXRef-platformio-6.2.0",
       "name": "platformio",
-      "versionInfo": "6.1.19",
-      "downloadLocation": "https://pypi.org/project/platformio/6.1.19/",
+      "versionInfo": "6.2.0",
+      "downloadLocation": "https://pypi.org/project/platformio/6.2.0/",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
@@ -130,7 +130,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:pypi/platformio@6.1.19"
+          "referenceLocator": "pkg:pypi/platformio@6.2.0"
         }
       ]
     },
@@ -200,12 +200,12 @@
     {
       "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Pillow-12.3.0"
+      "relatedSpdxElement": "SPDXRef-Pillow-13.0.0"
     },
     {
       "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-platformio-6.1.19"
+      "relatedSpdxElement": "SPDXRef-platformio-6.2.0"
     },
     {
       "spdxElementId": "SPDXRef-CYD-Desk-Dashboard-firmware-NOASSERTION",
